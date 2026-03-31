@@ -65,23 +65,23 @@ const Sidebar = ({ children }) => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100 text-gray-900">
+    <div className="flex h-screen bg-slate-50 text-slate-900">
       {/* Sidebar */}
       <aside
         className={`${
           isOpen ? "w-64" : "w-20"
-        } bg-gray-900 text-gray-100 transition-all duration-500 ease-in-out shadow-xl flex flex-col`}
+        } bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-slate-100 transition-all duration-500 ease-in-out shadow-2xl flex flex-col border-r border-slate-700/70`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-800">
+        <div className="flex items-center justify-between p-4 border-b border-slate-700/70">
           {isOpen && (
-            <h3 className="text-xl font-semibold tracking-wide text-emerald-400">
-              Dashboard
+            <h3 className="text-xl font-semibold tracking-wide text-emerald-300">
+              Al Irsyad Panel
             </h3>
           )}
           <button
             onClick={toggleSidebar}
-            className="p-2 rounded-lg hover:bg-gray-800 transition-colors"
+            className="h-10 w-10 grid place-items-center rounded-xl bg-slate-800/70 hover:bg-slate-700 transition-colors"
             title="Toggle Sidebar"
           >
             <span className="text-lg">☰</span>
@@ -89,14 +89,14 @@ const Sidebar = ({ children }) => {
         </div>
 
         {/* Menu List */}
-        <nav className="flex-1 overflow-y-auto mt-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
+        <nav className="flex-1 overflow-y-auto mt-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-900">
           <Menus role={role} isOpen={isOpen} currentPath={location.pathname} />
         </nav>
 
         {/* Logout Button */}
         <div
           onClick={handleLogout}
-          className="flex items-center gap-3 p-4 mt-auto text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors cursor-pointer"
+          className="flex items-center gap-3 p-4 mt-auto text-sm font-medium text-slate-300 hover:text-white hover:bg-rose-500/20 transition-colors cursor-pointer border-t border-slate-700/70"
         >
           <FaSignOutAlt className="text-lg" />
           {isOpen && <span>Logout</span>}

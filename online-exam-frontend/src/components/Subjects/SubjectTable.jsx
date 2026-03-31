@@ -30,8 +30,8 @@ const SubjectTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit }
   };
 
   return (
-    <div className="font-poppins">
-      <table className="w-full border border-gray-200 rounded-xl overflow-hidden text-sm text-gray-700">
+    <div className="font-poppins table-shell">
+      <table className="w-full text-sm text-slate-700">
         <thead className="bg-emerald-50 text-emerald-700 uppercase text-xs font-semibold tracking-wider">
           <tr>
             <th className="px-4 py-3 text-center">No</th>

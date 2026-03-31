@@ -26,7 +26,7 @@ const QuestionnaireTable = ({ data, onRefresh, searchParams, setSearchParams, on
   return (
     <div className="mt-6 bg-white rounded-2xl shadow-md border border-gray-100">
       <div className="overflow-x-auto">
-        <table className="min-w-full text-sm text-gray-700 table-fixed">
+        <table className="min-w-full text-sm text-slate-700 table-fixed">
           <thead className="bg-gradient-to-r from-emerald-50 to-teal-100 text-gray-700">
             <tr className="text-sm font-semibold">
               <th className="px-4 py-3 text-center border-b min-w-[60px]">No</th>
