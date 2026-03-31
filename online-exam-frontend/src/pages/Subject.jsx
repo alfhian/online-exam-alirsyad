@@ -70,7 +70,7 @@ const Subjects = () => {
 
   useEffect(() => {
     fetchData();
-  }, [page]);
+  }, [search, sort, order, page]);
 
   const handleSubmit = async () => {
     try {
@@ -168,7 +168,7 @@ const Subjects = () => {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <div className="overflow-x-auto">
                 <SubjectTable
                   data={data}
                   onRefresh={fetchData}

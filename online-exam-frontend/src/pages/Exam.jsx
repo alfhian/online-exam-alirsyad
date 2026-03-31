@@ -32,6 +32,8 @@ const Exam = () => {
   const [selectedId, setSelectedId] = useState(null);
   const [meta, setMeta] = useState({ total: 0 });
   const search = searchParams.get("search") || "";
+  const sort = searchParams.get("sort") || "title";
+  const order = searchParams.get("order") || "asc";
   const page = Number(searchParams.get("page")) || 1;
   const pageSize = 10;
 
@@ -57,7 +59,7 @@ const Exam = () => {
     setLoading(true);
     try {
       const res = await api.get("/exams", {
-        params: { search, page, limit: pageSize },
+        params: { search, sort, order, page, limit: pageSize },
       });
       setExams(Array.isArray(res.data?.data) ? res.data.data : []);
       setMeta(res.data?.meta || { total: 0 });
@@ -74,7 +76,7 @@ const Exam = () => {
 
   useEffect(() => {
     fetchExams();
-  }, [page]);
+  }, [search, sort, order, page]);
 
   const handleSubmit = async () => {
     try {
@@ -181,7 +183,7 @@ const Exam = () => {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <div className="overflow-x-auto">
                 <ExamTable
                   data={exams}
                   onRefresh={fetchExams}
@@ -206,7 +208,14 @@ const Exam = () => {
                   current={page}
                   total={meta.total}
                   pageSize={pageSize}
-                  onPageChange={(p) => setSearchParams({ page: p })}
+                  onPageChange={(p) =>
+                    setSearchParams({
+                      search,
+                      sort,
+                      order,
+                      page: p.toString(),
+                    })
+                  }
                 />
               </div>
             </>

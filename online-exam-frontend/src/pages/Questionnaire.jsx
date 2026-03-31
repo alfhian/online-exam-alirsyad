@@ -37,6 +37,8 @@ const Questionnaire = () => {
   const [selectedId, setSelectedId] = useState(null);
   const [meta, setMeta] = useState({ total: 0 });
   const search = searchParams.get("search") || "";
+  const sort = searchParams.get("sort") || "question";
+  const order = searchParams.get("order") || "asc";
   const page = Number(searchParams.get("page")) || 1;
   const pageSize = 10;
 
@@ -83,7 +85,7 @@ const Questionnaire = () => {
       const res = await axios.get(
         `${import.meta.env.VITE_API_BASE_URL}/exams/${examId}/questionnaires`,
         {
-          params: { search, page, limit: pageSize },
+          params: { search, sort, order, page, limit: pageSize },
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         }
       );
@@ -103,7 +105,7 @@ const Questionnaire = () => {
 
   useEffect(() => {
     fetchQuestionnaires();
-  }, [page]);
+  }, [search, sort, order, page]);
 
   const handleSubmit = async () => {
     try {
@@ -240,7 +242,14 @@ const Questionnaire = () => {
                   current={page}
                   total={meta.total}
                   pageSize={pageSize}
-                  onPageChange={(p) => setSearchParams({ page: p })}
+                  onPageChange={(p) =>
+                    setSearchParams({
+                      search,
+                      sort,
+                      order,
+                      page: p.toString(),
+                    })
+                  }
                 />
               </div>
             </>

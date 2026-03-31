@@ -93,7 +93,7 @@ const TeacherExam = () => {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <div className="overflow-x-auto">
                 <TeacherExamTable
                   data={exams}
                   searchParams={searchParams}

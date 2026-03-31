@@ -78,7 +78,7 @@ const SubmittedExams = () => {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+              <div className="overflow-x-auto">
                 <SubmittedExamTable
                   data={submissions}
                   searchParams={searchParams}

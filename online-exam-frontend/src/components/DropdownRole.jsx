@@ -13,7 +13,8 @@ export default function RoleSelect({ role, setRole }) {
 			value={options.find(opt => opt.value === role)}
 			onChange={(opt) => setRole(opt?.value ?? null)}
 			placeholder="Pilih Role"
-			className='w-full py-1 px-2 bg-white rounded-full'
+      className="w-full"
+      classNamePrefix="app-select"
 			isClearable
     />
   );

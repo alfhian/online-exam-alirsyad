@@ -72,7 +72,12 @@ button:focus-visible {
   border: 1px solid #e2e8f0;
   background: #ffffff;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.table-shell table {
+  min-width: 900px;
 }
 
 table {
@@ -102,6 +107,16 @@ tbody td {
   border-bottom: 1px solid #eef2f7;
 }
 
+.table-shell th,
+.table-shell td {
+  border-left: 0 !important;
+  border-right: 0 !important;
+}
+
+.table-shell tbody tr:last-child td {
+  border-bottom: 0 !important;
+}
+
 input,
 select,
 textarea {
@@ -109,6 +124,29 @@ textarea {
   border: 1px solid #dbe1ea !important;
   background: #fff !important;
   transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.app-select__control {
+  min-height: 44px !important;
+  border: 1px solid #dbe1ea !important;
+  border-radius: 0.85rem !important;
+  box-shadow: none !important;
+}
+
+.app-select__control--is-focused {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12) !important;
+}
+
+.app-select__value-container {
+  padding: 0 0.75rem !important;
+}
+
+.app-select__input-container input {
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 input:focus,
