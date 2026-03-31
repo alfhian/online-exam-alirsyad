@@ -40,8 +40,8 @@ export class SubjectService {
         .is('deleted_at', null);
 
       if (search?.trim()) {
-        const keyword = `%${search.trim().toLowerCase()}%`;
-        query = query.or(`ilike(name,${keyword}),ilike(description,${keyword})`);
+        const keyword = search.trim().toLowerCase();
+        query = query.or(`name.ilike.%${keyword}%,description.ilike.%${keyword}%`);
       }
 
       query = query.order(sort, { ascending: order === 'asc' }).range(from, to);
