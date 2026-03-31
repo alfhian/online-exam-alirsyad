@@ -79,6 +79,34 @@ ENABLE_TYPEORM=false
 
 Lalu restart service backend (PM2/systemd/docker) dan cek health endpoint API.
 
+Jika masih muncul error:
+`null value in column "created_by" of relation "users" violates not-null constraint`,
+pastikan trigger default untuk tabel `users` sudah ada (migration terbaru). Untuk Supabase SQL editor, Anda bisa jalankan:
+
+```sql
+CREATE OR REPLACE FUNCTION set_users_created_by_default()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.id IS NULL THEN
+    NEW.id := gen_random_uuid();
+  END IF;
+
+  IF NEW.created_by IS NULL THEN
+    NEW.created_by := NEW.id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_set_users_created_by_default ON users;
+
+CREATE TRIGGER trg_set_users_created_by_default
+BEFORE INSERT ON users
+FOR EACH ROW
+EXECUTE FUNCTION set_users_created_by_default();
+```
+
 ## Entity Files
 
 The following entities will be automatically created:
