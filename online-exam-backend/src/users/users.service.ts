@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, Logger, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import { User } from './entities/user.entity';
 
 @Injectable()
@@ -13,14 +14,20 @@ export class UsersService {
 
   // CREATE USER
   async createUser(user: Partial<User>): Promise<User> {
-    delete user.id;
-
     Object.keys(user).forEach((key) => {
       if (user[key] === '') user[key] = null;
     });
 
+    if (!user.id) {
+      user.id = randomUUID();
+    }
+
     if (user.created_by && !this.uuidRegex.test(String(user.created_by))) {
-      delete user.created_by;
+      user.created_by = user.id;
+    }
+
+    if (!user.created_by) {
+      user.created_by = user.id;
     }
 
     const { data, error } = await this.supabase
