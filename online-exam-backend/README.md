@@ -46,7 +46,7 @@ Main variables used by this backend:
 - `JWT_SECRET`
 - `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`
 - `SUPABASE_URL`, `SUPABASE_KEY`
-- `ENABLE_TYPEORM` (opsional, default aktif hanya saat `NODE_ENV=development`)
+- `ENABLE_TYPEORM` (opsional, default `false`; set `true` hanya jika memang memakai TypeORM/PostgreSQL)
 
 ## Compile and run the project
 

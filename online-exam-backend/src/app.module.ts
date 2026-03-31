@@ -11,9 +11,7 @@ import { SubjectModule } from './subjects/subject.module';
 import { QuestionnaireModule } from './questionnaires/questionnaire.module';
 import { getDatabaseConfig } from './config/database.config';
 
-const shouldEnableTypeOrm =
-  process.env.ENABLE_TYPEORM === 'true' ||
-  (process.env.ENABLE_TYPEORM !== 'false' && process.env.NODE_ENV === 'development');
+const shouldEnableTypeOrm = process.env.ENABLE_TYPEORM === 'true';
 
 @Module({
   imports: [
@@ -40,4 +38,3 @@ const shouldEnableTypeOrm =
   providers: [AppService],
 })
 export class AppModule {}
-

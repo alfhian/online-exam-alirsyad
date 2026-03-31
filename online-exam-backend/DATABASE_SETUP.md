@@ -25,7 +25,7 @@ DB_NAME=al_irsyad_exam
 # Application Configuration
 NODE_ENV=development
 PORT=3000
-ENABLE_TYPEORM=true
+ENABLE_TYPEORM=false
 
 # JWT Configuration
 JWT_SECRET=your_jwt_secret_key_here
@@ -69,7 +69,7 @@ If you encounter connection issues:
 
 ### Khusus deployment VPS (error `502 Bad Gateway`)
 
-Jika backend Anda memakai Supabase untuk query utama dan PostgreSQL lokal belum tersedia di VPS, NestJS bisa gagal startup karena mencoba koneksi TypeORM saat boot. Gejalanya biasanya endpoint API mengembalikan `502` dari Nginx karena upstream Node.js mati.
+Jika backend Anda memakai Supabase untuk query utama, biarkan `ENABLE_TYPEORM=false` agar NestJS tidak melakukan inisialisasi metadata TypeORM saat boot. Ini mencegah error startup (contoh: metadata entity tidak lengkap) yang akhirnya membuat endpoint API mengembalikan `502` dari Nginx karena upstream Node.js mati.
 
 Gunakan:
 
