@@ -43,30 +43,95 @@ const StatCard = ({ icon: Icon, title, value, tone = "emerald" }) => {
   );
 };
 
-const SummaryChart = ({ title, items }) => {
+const BarChartCard = ({ title, items }) => {
   const max = Math.max(...items.map((item) => item.value), 1);
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
+      <div className="mt-4 space-y-3">
+        {items.map((item) => (
+          <div key={item.label}>
+            <div className="mb-1 flex justify-between text-sm text-slate-600">
+              <span>{item.label}</span>
+              <span className="font-semibold text-slate-800">{item.value}</span>
+            </div>
+            <div className="h-3 rounded-full bg-slate-100">
+              <div
+                className="h-3 rounded-full bg-gradient-to-r from-blue-500 to-emerald-400"
+                style={{ width: `${(item.value / max) * 100}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const PieChartCard = ({ title, items }) => {
+  const total = items.reduce((acc, item) => acc + item.value, 0) || 1;
+  let cumulative = 0;
+  const colors = ["#22c55e", "#3b82f6", "#8b5cf6", "#f59e0b"];
+
+  const slices = items.map((item, index) => {
+    const start = cumulative / total;
+    cumulative += item.value;
+    const end = cumulative / total;
+    const largeArc = end - start > 0.5 ? 1 : 0;
+    const startX = 50 + 40 * Math.cos(2 * Math.PI * start - Math.PI / 2);
+    const startY = 50 + 40 * Math.sin(2 * Math.PI * start - Math.PI / 2);
+    const endX = 50 + 40 * Math.cos(2 * Math.PI * end - Math.PI / 2);
+    const endY = 50 + 40 * Math.sin(2 * Math.PI * end - Math.PI / 2);
+    const d = `M 50 50 L ${startX} ${startY} A 40 40 0 ${largeArc} 1 ${endX} ${endY} Z`;
+    return { ...item, d, color: colors[index % colors.length] };
+  });
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
-      <div className="mt-4 space-y-4">
-        {items.map((item) => {
-          const width = `${Math.max((item.value / max) * 100, 6)}%`;
-          return (
-            <div key={item.label}>
-              <div className="mb-1 flex items-center justify-between text-sm">
-                <span className="text-slate-600">{item.label}</span>
-                <span className="font-semibold text-slate-800">{item.value}</span>
-              </div>
-              <div className="h-2 rounded-full bg-slate-100">
-                <div
-                  className="h-2 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400"
-                  style={{ width }}
-                />
-              </div>
+      <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center">
+        <svg viewBox="0 0 100 100" className="h-52 w-52">
+          {slices.map((slice) => (
+            <path key={slice.label} d={slice.d} fill={slice.color} />
+          ))}
+        </svg>
+        <div className="space-y-2">
+          {slices.map((slice) => (
+            <div key={slice.label} className="flex items-center gap-2 text-sm">
+              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: slice.color }} />
+              <span className="text-slate-600">{slice.label}</span>
+              <span className="font-semibold text-slate-800">{slice.value}</span>
             </div>
-          );
-        })}
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const LineChartCard = ({ title, items }) => {
+  const max = Math.max(...items.map((item) => item.value), 1);
+  const points = items
+    .map((item, idx) => {
+      const x = (idx / Math.max(items.length - 1, 1)) * 100;
+      const y = 100 - (item.value / max) * 90;
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
+      <svg viewBox="0 0 100 100" className="mt-4 h-56 w-full">
+        <polyline points="0,100 100,100" fill="none" stroke="#cbd5e1" strokeWidth="1" />
+        <polyline points={points} fill="none" stroke="#16a34a" strokeWidth="2.5" />
+      </svg>
+      <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600 md:grid-cols-4">
+        {items.map((item) => (
+          <div key={item.label} className="rounded-lg bg-slate-50 px-2 py-1">
+            {item.label}: <span className="font-semibold text-slate-800">{item.value}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -179,7 +244,7 @@ const Dashboard = () => {
                 tone="amber"
               />
             </div>
-            <SummaryChart
+            <PieChartCard
               title="Komposisi Data Akademik"
               items={[
                 { label: "Pengguna", value: summary.totalUsers },
@@ -205,7 +270,7 @@ const Dashboard = () => {
                 tone="blue"
               />
             </div>
-            <SummaryChart
+            <BarChartCard
               title="Ringkasan Aktivitas Guru"
               items={[
                 { label: "Ujian Ditangani", value: summary.teacherExams },
@@ -229,7 +294,7 @@ const Dashboard = () => {
                 </p>
               </div>
             </div>
-            <SummaryChart
+            <LineChartCard
               title="Progress Harian Siswa"
               items={[
                 { label: "Ujian Tersedia Hari Ini", value: summary.todayExams },

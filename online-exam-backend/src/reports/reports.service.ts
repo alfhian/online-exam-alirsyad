@@ -63,11 +63,6 @@ export class ReportsService {
               name,
               class_id
             )
-          ),
-          users (
-            id,
-            name,
-            userid
           )
         `,
       );
@@ -88,6 +83,27 @@ export class ReportsService {
           (row: any) => row?.exams?.type?.toUpperCase() === filter.examType?.toUpperCase(),
         );
       }
+
+      const studentIds = [...new Set(rows.map((row: any) => row.student_id).filter(Boolean))];
+      let usersById: Record<string, any> = {};
+
+      if (studentIds.length) {
+        const { data: users, error: userError } = await this.supabase
+          .from('users')
+          .select('id,name,userid')
+          .in('id', studentIds);
+
+        if (userError) throw userError;
+        usersById = (users || []).reduce((acc: Record<string, any>, user: any) => {
+          acc[user.id] = user;
+          return acc;
+        }, {});
+      }
+
+      rows = rows.map((row: any) => ({
+        ...row,
+        users: usersById[row.student_id] || null,
+      }));
 
       return rows;
     } catch (error: any) {
@@ -123,4 +139,3 @@ export class ReportsService {
     );
   }
 }
-
