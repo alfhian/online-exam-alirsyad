@@ -1,0 +1,79 @@
+# SMK Al Irsyad Backend - PostgreSQL Setup
+
+## Database Configuration
+
+The application is configured to use PostgreSQL with the following default credentials:
+
+- **Host**: localhost
+- **Port**: 5432
+- **Username**: postgres
+- **Password**: 123
+- **Database**: al_irsyad_exam
+
+## Environment Setup
+
+Create a `.env` file in the project root with the following content:
+
+```env
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=123
+DB_NAME=al_irsyad_exam
+
+# Application Configuration
+NODE_ENV=development
+PORT=3000
+
+# JWT Configuration
+JWT_SECRET=your_jwt_secret_key_here
+
+# Supabase Configuration
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_KEY=your_supabase_key_here
+
+# CORS Configuration
+CORS_ORIGIN=http://localhost:5173
+```
+
+## Database Setup Steps
+
+1. **Install PostgreSQL** (if not already installed)
+2. **Create the database**:
+   ```sql
+   CREATE DATABASE al_irsyad_exam;
+   ```
+3. **Verify PostgreSQL is running** on port 5432
+4. **Create the `.env` file** with the credentials above
+5. **Run the application**:
+   ```bash
+   npm run start:dev
+   ```
+
+## Database Features
+
+- **Auto-synchronization**: In development mode, TypeORM will automatically create tables based on your entities
+- **Logging**: SQL queries are logged in development mode
+- **SSL**: Disabled for local development, enabled for production
+
+## Troubleshooting
+
+If you encounter connection issues:
+
+1. Verify PostgreSQL is running: `pg_ctl status`
+2. Check if the database exists: `psql -U postgres -l`
+3. Test connection: `psql -U postgres -d al_irsyad_exam`
+4. Ensure the password is correct (123)
+
+## Entity Files
+
+The following entities will be automatically created:
+- `users` - User management
+- `exams` - Exam information
+- `exam_submissions` - Student exam submissions
+- `exam_sessions` - Exam session tracking
+- `subjects` - Subject management
+- `questionnaires` - Question management
+- `choices` - Multiple choice options
+- `questions` - Question details

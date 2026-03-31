@@ -1,0 +1,145 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Param,
+  Body,
+  NotFoundException,
+  BadRequestException,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
+import type { Request } from 'express';
+import { UsersService } from './users.service';
+import { User } from './entities/user.entity';
+import { AuthGuard } from '@nestjs/passport';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { Role } from 'src/common/enums/role.enum';
+
+@Controller('users')
+@UseGuards(AuthGuard('jwt'))
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  // ============================
+  // PAGINATION USERS
+  // ============================
+  @Get()
+  @Roles(Role.ADMIN)
+  async getUsers(
+    @Query('search') search = '',
+    @Query('sort') sort = 'name',
+    @Query('order') order: 'asc' | 'desc' = 'asc',
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+  ) {
+    return this.usersService.getUsersWithPagination(
+      search,
+      sort,
+      order,
+      Number(page),
+      Number(limit),
+    );
+  }
+
+  // ============================
+  // GET USERS BY ROLE
+  // ============================
+  @Get('role')
+  async getUsersByRole(
+    @Query('role') role: string,
+    @Query('examId') examId?: string,
+    @Query('search') search = '',
+    @Query('sort') sort = 'name',
+    @Query('order') order: 'asc' | 'desc' = 'asc',
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+  ) {
+    if (!role) {
+      throw new BadRequestException('role query param is required');
+    }
+
+    return this.usersService.getUsersByRole(
+      role.toUpperCase(),
+      search,
+      sort,
+      order,
+      Number(page),
+      Number(limit),
+      examId,
+    );
+  }
+
+  // ============================
+  // GET USER BY ID
+  // ============================
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    const user = await this.usersService.getUserById(id);
+    if (!user) throw new NotFoundException(`User ${id} not found`);
+    return user;
+  }
+
+  // ============================
+  // CREATE USER
+  // ============================
+  @Post()
+  @Roles(Role.ADMIN)
+  async create(@Body() body: Partial<User>, @Req() req: Request) {
+    const createdBy = (req as any)?.user?.sub ?? null;
+
+    if (!body.name || !body.userid || !body.role) {
+      throw new BadRequestException('Missing required fields');
+    }
+
+    return this.usersService.createUser({
+      ...body,
+      created_by: createdBy,
+    });
+  }
+
+  // ============================
+  // UPDATE USER
+  // ============================
+  @Put(':id')
+  @Roles(Role.ADMIN)
+  async update(
+    @Param('id') id: string,
+    @Body() body: Partial<User>,
+    @Req() req: Request,
+  ) {
+    const updatedBy = (req as any)?.user?.sub ?? null;
+
+    return this.usersService.updateUser(id, {
+      ...body,
+      updated_by: updatedBy,
+    });
+  }
+
+  // ============================
+  // UPDATE USER STATUS
+  // ============================
+  @Put(':id/status')
+  @Roles(Role.ADMIN)
+  async updateStatus(
+    @Param('id') id: string,
+    @Body('is_active') isActive: boolean,
+    @Body('updated_at') updatedAt: Date,
+    @Req() req: Request,
+  ) {
+    const updatedBy = (req as any)?.user?.sub ?? null;
+
+    return this.usersService.updateUserStatus(id, isActive, updatedAt, updatedBy);
+  }
+
+  // ============================
+  // GENERATE NEW PASSWORD FOR ALL SISWA
+  // ============================
+  @Post('generate-password-siswa')
+  @Roles(Role.ADMIN)
+  async generatePasswordSiswa() {
+    return this.usersService.generateSamePasswordForAllSiswa();
+  }
+}
