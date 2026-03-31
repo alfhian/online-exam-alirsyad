@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RoleSelect from '../components/DropdownRole';
 import axios from 'axios';
-import { registerUser, loginUser } from '../services/authService';
 
 const Register = () => {
 	const [name, setName] = useState('');
@@ -33,29 +32,14 @@ const Register = () => {
         userid,
         password,
 				role,
-				is_active: true,
-				created_at: new Date().toISOString(),
-				created_by: userid,
       });
 
       console.log(res.data);
-
-			if (!res.data.success) {
-				setError(res.data.message || 'Registrasi gagal, silakan coba lagi.');
-				setLoading(false);
-				throw new Error(res.data.message || 'Registrasi gagal, silakan coba lagi.');
-			}
 
 			const login = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/auth/login`, {
         userid,
         password,
       });
-
-			if (!login.data.success) {
-				setError(login.data.message || 'Login gagal, silakan coba lagi.');
-				setLoading(false);
-				throw new Error(login.data.message || 'Login gagal, silakan coba lagi.');
-			}
 
 			const token = login.data.access_token;
       localStorage.setItem('token', token); // atau simpan di cookie

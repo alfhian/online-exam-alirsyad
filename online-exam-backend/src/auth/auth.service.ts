@@ -35,9 +35,9 @@ export class AuthService {
       password: hashed,
       name: dto.name,
       role: dto.role,
-      is_active: true,
+      is_active: dto.is_active ?? true,
       created_at: new Date(),
-      created_by: dto.created_by,
+      created_by: dto.created_by ?? null,
     });
 
     const user = await this.usersService.getUserByNisNik(dto.userid);
