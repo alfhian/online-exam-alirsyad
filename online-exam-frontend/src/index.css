@@ -147,6 +147,17 @@ textarea {
   box-shadow: none !important;
   padding: 0 !important;
   margin: 0 !important;
+  min-width: 1px !important;
+  background: transparent !important;
+}
+
+.app-select__input {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.app-select__indicator-separator {
+  margin: 6px 0 !important;
 }
 
 input:focus,
