@@ -11,17 +11,25 @@ import { SubjectModule } from './subjects/subject.module';
 import { QuestionnaireModule } from './questionnaires/questionnaire.module';
 import { getDatabaseConfig } from './config/database.config';
 
+const shouldEnableTypeOrm =
+  process.env.ENABLE_TYPEORM === 'true' ||
+  (process.env.ENABLE_TYPEORM !== 'false' && process.env.NODE_ENV === 'development');
+
 @Module({
   imports: [
     SupabaseModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: getDatabaseConfig,
-      inject: [ConfigService],
-    }),
+    ...(shouldEnableTypeOrm
+      ? [
+          TypeOrmModule.forRootAsync({
+            imports: [ConfigModule],
+            useFactory: getDatabaseConfig,
+            inject: [ConfigService],
+          }),
+        ]
+      : []),
     AuthModule,
     UsersModule,
     ExamModule,
@@ -32,5 +40,4 @@ import { getDatabaseConfig } from './config/database.config';
   providers: [AppService],
 })
 export class AppModule {}
-
 
