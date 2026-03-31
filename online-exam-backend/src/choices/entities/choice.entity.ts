@@ -7,7 +7,7 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
 } from 'typeorm';
-import { Question } from '../../questions/entities/question.entity';
+import type { Question } from '../../questions/entities/question.entity';
 
 @Entity('choices')
 export class Choice {
@@ -20,7 +20,7 @@ export class Choice {
   @Column({ default: false })
   isCorrect: boolean;
 
-  @ManyToOne(() => Question, (question) => question.choices, { onDelete: 'CASCADE' })
+  @ManyToOne('Question', 'choices', { onDelete: 'CASCADE' })
   question: Question;
 
   @CreateDateColumn()
