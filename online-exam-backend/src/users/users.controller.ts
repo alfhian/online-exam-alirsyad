@@ -24,6 +24,28 @@ import * as bcrypt from 'bcryptjs';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  private normalizePasswordInput(value: unknown): string {
+    if (value === null || value === undefined) return '';
+    return String(value).trim();
+  }
+
+  private normalizeDefaultPassword(value: unknown): string {
+    const normalized = this.normalizePasswordInput(value);
+    if (!normalized) return '';
+
+    // Handle env values like "123456" or '123456'
+    const hasDoubleQuotes =
+      normalized.startsWith('"') && normalized.endsWith('"');
+    const hasSingleQuotes =
+      normalized.startsWith("'") && normalized.endsWith("'");
+
+    if ((hasDoubleQuotes || hasSingleQuotes) && normalized.length >= 2) {
+      return normalized.slice(1, -1).trim();
+    }
+
+    return normalized;
+  }
+
   // ============================
   // PAGINATION USERS
   // ============================
@@ -90,16 +112,16 @@ export class UsersController {
   @Roles(Role.ADMIN)
   async create(@Body() body: Partial<User>, @Req() req: Request) {
     const createdBy = (req as any)?.user?.sub ?? null;
-    const defaultPassword = process.env.DEFAULT_NEW_USER_PASSWORD || 'ChangeMe#2026';
+    const defaultPassword =
+      this.normalizeDefaultPassword(process.env.DEFAULT_NEW_USER_PASSWORD) ||
+      'ChangeMe#2026';
 
     if (!body.name || !body.userid || !body.role) {
       throw new BadRequestException('Missing required fields');
     }
 
-    const passwordSource =
-      typeof body.password === 'string' && body.password.trim().length > 0
-        ? body.password.trim()
-        : defaultPassword;
+    const requestedPassword = this.normalizePasswordInput(body.password);
+    const passwordSource = requestedPassword || defaultPassword;
     const hashedPassword = bcrypt.hashSync(passwordSource, 10);
 
     return this.usersService.createUser({
