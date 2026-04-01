@@ -96,7 +96,11 @@ export class UsersController {
       throw new BadRequestException('Missing required fields');
     }
 
-    const hashedPassword = bcrypt.hashSync(defaultPassword, 10);
+    const passwordSource =
+      typeof body.password === 'string' && body.password.trim().length > 0
+        ? body.password.trim()
+        : defaultPassword;
+    const hashedPassword = bcrypt.hashSync(passwordSource, 10);
 
     return this.usersService.createUser({
       ...body,

@@ -19,6 +19,12 @@ import ClassSelect from "../components/DropdownClass";
 import api from "../api/axiosConfig";
 
 const MySwal = withReactContent(Swal);
+const initialSubjectForm = {
+  id: "",
+  name: "",
+  description: "",
+  class_id: "",
+};
 
 const Subjects = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -34,12 +40,8 @@ const Subjects = () => {
   const page = Number(searchParams.get("page")) || 1;
   const pageSize = 10;
 
-  const [formData, setFormData] = useState({
-    id: "",
-    name: "",
-    description: "",
-    class_id: "",
-  });
+  const [formData, setFormData] = useState(initialSubjectForm);
+  const resetForm = () => setFormData(initialSubjectForm);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -81,6 +83,7 @@ const Subjects = () => {
       });
 
       setShowModal(false);
+      resetForm();
       MySwal.fire("Berhasil!", "Mata Pelajaran berhasil ditambahkan.", "success");
       fetchData();
     } catch (err) {
@@ -123,6 +126,7 @@ const Subjects = () => {
         }
       );
       setEditModalOpen(false);
+      resetForm();
       MySwal.fire("Berhasil!", "Mata Pelajaran berhasil diperbarui.", "success");
       fetchData();
     } catch (err) {
@@ -145,7 +149,10 @@ const Subjects = () => {
             </h3>
           </div>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              resetForm();
+              setShowModal(true);
+            }}
             className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg font-medium shadow-sm transition-colors duration-200"
           >
             + Tambah Mata Pelajaran
@@ -203,7 +210,7 @@ const Subjects = () => {
 
         {/* Modal Tambah */}
         <Transition appear show={showModal} as={Fragment}>
-          <Dialog as="div" className="relative z-10" onClose={() => setShowModal(false)}>
+          <Dialog as="div" className="relative z-10" onClose={() => { setShowModal(false); resetForm(); }}>
             <TransitionChild
               as={Fragment}
               enter="ease-out duration-300"
@@ -275,7 +282,7 @@ const Subjects = () => {
 
                     <div className="mt-6 flex justify-end space-x-2">
                       <button
-                        onClick={() => setShowModal(false)}
+                        onClick={() => { setShowModal(false); resetForm(); }}
                         className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                       >
                         Batal
@@ -296,7 +303,7 @@ const Subjects = () => {
 
         {/* Modal Edit */}
         <Transition appear show={editModalOpen} as={Fragment}>
-          <Dialog as="div" className="relative z-10" onClose={() => setEditModalOpen(false)}>
+          <Dialog as="div" className="relative z-10" onClose={() => { setEditModalOpen(false); resetForm(); }}>
             <TransitionChild
               as={Fragment}
               enter="ease-out duration-300"
@@ -368,7 +375,7 @@ const Subjects = () => {
 
                     <div className="mt-6 flex justify-end space-x-2">
                       <button
-                        onClick={() => setEditModalOpen(false)}
+                        onClick={() => { setEditModalOpen(false); resetForm(); }}
                         className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                       >
                         Batal

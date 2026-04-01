@@ -115,6 +115,7 @@ const Questionnaire = () => {
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
       setShowModal(false);
+      resetForm();
       MySwal.fire({
         title: "Berhasil!",
         text: `Pertanyaan berhasil ditambahkan.`,
@@ -170,6 +171,7 @@ const Questionnaire = () => {
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
       setEditModalOpen(false);
+      resetForm();
       MySwal.fire({
         title: "Berhasil!",
         text: "Pertanyaan berhasil diperbarui.",
@@ -201,7 +203,10 @@ const Questionnaire = () => {
             </h3>
           </div>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              resetForm();
+              setShowModal(true);
+            }}
             className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white font-semibold py-2 px-4 rounded-xl shadow-md transition-all"
           >
             + Tambah Pertanyaan
