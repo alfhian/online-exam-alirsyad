@@ -39,5 +39,9 @@ export class ReportsController {
   ) {
     return this.reportsService.getSubjectSummary({ from, to, subjectId, examType });
   }
-}
 
+  @Get('dashboard-charts')
+  getDashboardCharts() {
+    return this.reportsService.getDashboardCharts();
+  }
+}

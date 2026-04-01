@@ -138,4 +138,60 @@ export class ReportsService {
       (a: any, b: any) => Number(b.averageScore) - Number(a.averageScore),
     );
   }
+
+  async getDashboardCharts() {
+    const currentYear = new Date().getFullYear();
+    const startYear = currentYear - 4;
+
+    const years = Array.from({ length: 5 }, (_, idx) => startYear + idx);
+
+    const [submissionsRes, usersRes] = await Promise.all([
+      this.supabase
+        .from('exam_submissions')
+        .select('created_at,score')
+        .gte('created_at', `${startYear}-01-01T00:00:00`)
+        .lte('created_at', `${currentYear}-12-31T23:59:59`),
+      this.supabase.from('users').select('role').is('deleted_at', null),
+    ]);
+
+    if (submissionsRes.error) {
+      throw new InternalServerErrorException(submissionsRes.error.message);
+    }
+    if (usersRes.error) {
+      throw new InternalServerErrorException(usersRes.error.message);
+    }
+
+    const submissions = submissionsRes.data || [];
+    const users = usersRes.data || [];
+
+    const submissionByYear = years.map((year) => ({
+      year,
+      total: submissions.filter((item: any) => new Date(item.created_at).getFullYear() === year)
+        .length,
+    }));
+
+    const averageScoreByYear = years.map((year) => {
+      const rows = submissions.filter(
+        (item: any) =>
+          new Date(item.created_at).getFullYear() === year && item.score !== null && item.score !== undefined,
+      );
+      const total = rows.reduce((acc: number, row: any) => acc + Number(row.score || 0), 0);
+      return {
+        year,
+        average: rows.length ? Number((total / rows.length).toFixed(2)) : 0,
+      };
+    });
+
+    const roleSummary = {
+      siswa: users.filter((user: any) => user.role === 'SISWA').length,
+      guru: users.filter((user: any) => user.role === 'GURU').length,
+      admin: users.filter((user: any) => user.role === 'ADMIN').length,
+    };
+
+    return {
+      submissionByYear,
+      averageScoreByYear,
+      roleSummary,
+    };
+  }
 }
