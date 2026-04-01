@@ -1,7 +1,7 @@
 export const roleMenus: Record<string, string[]> = {
   SISWA: ['dashboard', 'ujian', 'exam_submissions'],
-  GURU: ['dashboard', 'exam', 'subject', 'teacher_exam'],
-  ADMIN: ['dashboard', 'exam', 'subject', 'user_management', 'teacher_exam'],
+  GURU: ['dashboard', 'exam', 'subject', 'teacher_exam', 'laporan'],
+  ADMIN: ['dashboard', 'exam', 'subject', 'user_management', 'teacher_exam', 'laporan'],
 };
 
 export const menus = [

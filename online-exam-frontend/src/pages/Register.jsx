@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RoleSelect from '../components/DropdownRole';
 import axios from 'axios';
-import { registerUser, loginUser } from '../services/authService';
 
 const Register = () => {
 	const [name, setName] = useState('');
@@ -33,29 +32,14 @@ const Register = () => {
         userid,
         password,
 				role,
-				is_active: true,
-				created_at: new Date().toISOString(),
-				created_by: userid,
       });
 
       console.log(res.data);
-
-			if (!res.data.success) {
-				setError(res.data.message || 'Registrasi gagal, silakan coba lagi.');
-				setLoading(false);
-				throw new Error(res.data.message || 'Registrasi gagal, silakan coba lagi.');
-			}
 
 			const login = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/auth/login`, {
         userid,
         password,
       });
-
-			if (!login.data.success) {
-				setError(login.data.message || 'Login gagal, silakan coba lagi.');
-				setLoading(false);
-				throw new Error(login.data.message || 'Login gagal, silakan coba lagi.');
-			}
 
 			const token = login.data.access_token;
       localStorage.setItem('token', token); // atau simpan di cookie
@@ -77,15 +61,15 @@ const Register = () => {
     <div className='grid grid-cols-2'>
       <div style={{ backgroundImage: "url('/img/login-background-small.png')" }} className='hidden md:block h-screen bg-cover bg-center'>
       </div>
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-        <div className="w-full max-w-md">
+      <div className="min-h-screen flex items-center justify-center bg-transparent px-4">
+        <div className="w-full max-w-md bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200 shadow-xl p-8">
           <div className="flex justify-center mb-12">
             <h3 className='text-xl font-bold text-neutral-600'>Register</h3>
           </div>
 					<div>
 						{error && <div className="text-red-500 mb-4">{error}</div>}
 					</div>
-          <div className='mb-8'>
+          <div className='mb-2'>
             {/* <div className="flex items-center my-6">
               <div className="flex-grow h-px bg-gray-300"></div>
                 <span className="px-4 text-gray-500 font-medium whitespace-nowrap">Akses Siswa</span>
@@ -130,7 +114,7 @@ const Register = () => {
 							</div>
               <div className='flex justify-center'>
                 <button 
-                  className={`bg-green-500 w-[150px] text-white py-2 px-4 rounded-full hover:bg-emerald-300 transition-colors duration-200 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`btn-primary w-[150px] text-white py-2 px-4 rounded-full transition-colors duration-200 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   type="submit"
                 >
 									{loading ? 'Loading...' : 'Register'}

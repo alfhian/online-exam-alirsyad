@@ -1,12 +1,28 @@
-import { Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
+  private getDefaultPassword(): string {
+    const normalized = String(process.env.DEFAULT_NEW_USER_PASSWORD ?? '').trim();
+    if (!normalized) return '123456';
+
+    const quotedDouble = normalized.startsWith('"') && normalized.endsWith('"');
+    const quotedSingle = normalized.startsWith("'") && normalized.endsWith("'");
+    if ((quotedDouble || quotedSingle) && normalized.length >= 2) {
+      return normalized.slice(1, -1).trim() || '123456';
+    }
+
+    return normalized;
+  }
+  private readonly uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
@@ -28,16 +44,28 @@ export class AuthService {
    * ===========================
    */
   async register(dto: RegisterDto) {
-    const hashed = bcrypt.hashSync(dto.password, 10);
+    const userid = String(dto.userid ?? '').trim();
+    const rawPassword = String(dto.password ?? '').trim() || this.getDefaultPassword();
+    if (!userid) {
+      throw new BadRequestException('User ID tidak boleh kosong');
+    }
+
+    const hashed = bcrypt.hashSync(rawPassword, 10);
+    const newUserId = randomUUID();
+    const createdBy =
+      dto.created_by && this.uuidRegex.test(dto.created_by)
+        ? dto.created_by
+        : newUserId;
 
     await this.usersService.createUser({
-      userid: dto.userid,
+      id: newUserId,
+      userid,
       password: hashed,
       name: dto.name,
       role: dto.role,
-      is_active: true,
+      is_active: dto.is_active ?? true,
       created_at: new Date(),
-      created_by: dto.created_by,
+      created_by: createdBy,
     });
 
     const user = await this.usersService.getUserByNisNik(dto.userid);
@@ -62,7 +90,9 @@ export class AuthService {
    * ===========================
    */
   async validateUser(id: string, password: string) {
-    const user = await this.usersService.getUserByNisNik(id);
+    const userid = String(id ?? '').trim();
+    const inputPassword = String(password ?? '').trim();
+    const user = await this.usersService.getUserByNisNik(userid);
 
     if (!user) {
       throw new UnauthorizedException('User ID tidak terdaftar');
@@ -72,11 +102,11 @@ export class AuthService {
       throw new UnauthorizedException('Akun tidak aktif');
     }
 
-    if (!password) {
+    if (!inputPassword) {
       throw new UnauthorizedException('Password tidak boleh kosong');
     }
 
-    const isPasswordValid = bcrypt.compareSync(password, user.password);
+    const isPasswordValid = bcrypt.compareSync(inputPassword, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Password salah');
     }

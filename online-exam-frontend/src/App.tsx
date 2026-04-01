@@ -17,6 +17,7 @@ import TeacherExamStudents from "./pages/TeacherExamStudents.jsx";
 import TeacherExamScoring from "./pages/TeacherExamScoring.jsx";
 import Questionnaire from "./pages/Questionnaire.jsx";
 import Subject from "./pages/Subject.jsx";
+import Reports from "./pages/Reports.jsx";
 
 function App() {
   return (
@@ -61,6 +62,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Subject />  
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/laporan"
+          element={
+            <ProtectedRoute>
+              <Reports />
             </ProtectedRoute>
           }
         />

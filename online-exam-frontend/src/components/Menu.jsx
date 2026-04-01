@@ -12,7 +12,7 @@ const Menus = ({ role, isOpen }) => {
   );
 
   return (
-    <ul className="mt-4 space-y-1 px-2">
+    <ul className="mt-4 space-y-1.5 px-2">
       {filteredMenus.map((menu, index) => {
         const Icon = menu.icon ? FaIcons[menu.icon] : null;
         const isActive =
@@ -27,15 +27,15 @@ const Menus = ({ role, isOpen }) => {
             className={`group relative flex items-center gap-3 p-3 cursor-pointer transition-all duration-300
               ${
                 isActive
-                  ? "bg-emerald-100 text-emerald-800 border-l-4 border-emerald-500 shadow-inner"
-                  : "text-gray-300 hover:text-white hover:bg-gray-800"
+                  ? "bg-emerald-400/20 text-emerald-200 border border-emerald-300/30 shadow-lg shadow-emerald-500/10"
+                  : "text-slate-300 hover:text-white hover:bg-slate-700/60 border border-transparent"
               }
             `}
           >
             {Icon && (
               <Icon
                 className={`text-lg min-w-[24px] transition-transform duration-300 ${
-                  isActive ? "text-emerald-700 scale-110" : ""
+                  isActive ? "text-emerald-200 scale-110" : ""
                 }`}
               />
             )}
@@ -44,7 +44,7 @@ const Menus = ({ role, isOpen }) => {
             {isOpen && (
               <span
                 className={`text-sm font-medium tracking-wide transition-colors duration-200 ${
-                  isActive ? "text-emerald-800" : ""
+                  isActive ? "text-emerald-100" : ""
                 }`}
               >
                 {menu.title}
@@ -54,7 +54,7 @@ const Menus = ({ role, isOpen }) => {
             {/* Tooltip saat sidebar tertutup */}
             {!isOpen && (
               <span
-                className="absolute left-20 z-10 bg-gray-800 text-white text-sm py-1 px-2 rounded-lg opacity-0 group-hover:opacity-100 shadow-lg transition-opacity duration-200"
+                className="absolute left-20 z-10 bg-slate-700 text-white text-sm py-1 px-2 rounded-lg opacity-0 group-hover:opacity-100 shadow-lg transition-opacity duration-200"
               >
                 {menu.title}
               </span>
@@ -62,7 +62,7 @@ const Menus = ({ role, isOpen }) => {
 
             {/* Indicator hijau lembut di kiri menu aktif */}
             {isActive && (
-              <span className="absolute left-0 top-0 h-full w-1 bg-emerald-500 rounded-r-lg shadow-md"></span>
+              <span className="absolute left-0 top-0 h-full w-1 bg-emerald-300 rounded-r-lg shadow-md"></span>
             )}
           </li>
         );

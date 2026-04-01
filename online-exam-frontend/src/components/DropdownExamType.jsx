@@ -12,7 +12,8 @@ export default function ExamTypeSelect({ type, setType }) {
 			value={options.find(opt => opt.value === type)}
 			onChange={(opt) => setType(opt?.value ?? null)}
 			placeholder="Pilih Tipe Ujian"
-			className='w-full py-1 px-2 bg-white rounded-full'
+			className="w-full"
+      classNamePrefix="app-select"
 			isClearable
     />
   );

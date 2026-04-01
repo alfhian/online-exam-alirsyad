@@ -22,6 +22,13 @@ import { FaClipboardList } from "react-icons/fa";
 import api from "../api/axiosConfig";
 
 const MySwal = withReactContent(Swal);
+const initialExamForm = {
+  title: "",
+  subject_id: "",
+  type: "Reguler",
+  date: "",
+  duration: 0,
+};
 
 const Exam = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -32,16 +39,13 @@ const Exam = () => {
   const [selectedId, setSelectedId] = useState(null);
   const [meta, setMeta] = useState({ total: 0 });
   const search = searchParams.get("search") || "";
+  const sort = searchParams.get("sort") || "title";
+  const order = searchParams.get("order") || "asc";
   const page = Number(searchParams.get("page")) || 1;
   const pageSize = 10;
 
-  const [formData, setFormData] = useState({
-    title: "",
-    subject_id: "",
-    type: "Reguler",
-    date: "",
-    duration: 0,
-  });
+  const [formData, setFormData] = useState(initialExamForm);
+  const resetForm = () => setFormData(initialExamForm);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -57,7 +61,7 @@ const Exam = () => {
     setLoading(true);
     try {
       const res = await api.get("/exams", {
-        params: { search, page, limit: pageSize },
+        params: { search, sort, order, page, limit: pageSize },
       });
       setExams(Array.isArray(res.data?.data) ? res.data.data : []);
       setMeta(res.data?.meta || { total: 0 });
@@ -74,7 +78,7 @@ const Exam = () => {
 
   useEffect(() => {
     fetchExams();
-  }, [page]);
+  }, [search, sort, order, page]);
 
   const handleSubmit = async () => {
     try {
@@ -82,6 +86,7 @@ const Exam = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       setShowModal(false);
+      resetForm();
       MySwal.fire({
         title: "Berhasil!",
         text: `Ujian berhasil ditambahkan.`,
@@ -133,6 +138,7 @@ const Exam = () => {
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
       setEditModalOpen(false);
+      resetForm();
       MySwal.fire({
         title: "Berhasil!",
         text: "Ujian berhasil diperbarui.",
@@ -162,7 +168,10 @@ const Exam = () => {
             <h3 className="text-2xl font-bold text-gray-800">Daftar Ujian</h3>
           </div>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              resetForm();
+              setShowModal(true);
+            }}
             className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white font-semibold py-2 px-4 rounded-xl shadow-md transition-all"
           >
             + Tambah Ujian
@@ -181,7 +190,7 @@ const Exam = () => {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <div className="overflow-x-auto">
                 <ExamTable
                   data={exams}
                   onRefresh={fetchExams}
@@ -206,7 +215,14 @@ const Exam = () => {
                   current={page}
                   total={meta.total}
                   pageSize={pageSize}
-                  onPageChange={(p) => setSearchParams({ page: p })}
+                  onPageChange={(p) =>
+                    setSearchParams({
+                      search,
+                      sort,
+                      order,
+                      page: p.toString(),
+                    })
+                  }
                 />
               </div>
             </>
@@ -221,6 +237,7 @@ const Exam = () => {
             onClose={() => {
               setShowModal(false);
               setEditModalOpen(false);
+              resetForm();
             }}
           >
             <TransitionChild
@@ -324,6 +341,7 @@ const Exam = () => {
                         onClick={() => {
                           setShowModal(false);
                           setEditModalOpen(false);
+                          resetForm();
                         }}
                         className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg"
                       >

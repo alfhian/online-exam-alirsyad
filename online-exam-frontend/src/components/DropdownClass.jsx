@@ -16,7 +16,8 @@ export default function ClassSelect({ classes, setClasses }) {
             value={options.find(opt => opt.value === classes)}
             onChange={(opt) => setClasses(opt?.value ?? null)}
             placeholder="Pilih Kelas"
-            className='w-full py-1 px-2 bg-white rounded-full'
+            className="w-full"
+            classNamePrefix="app-select"
             isClearable
     />
   );

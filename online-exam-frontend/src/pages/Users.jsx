@@ -22,6 +22,21 @@ import { jwtDecode } from "jwt-decode";
 import api from "../api/axiosConfig";
 
 const MySwal = withReactContent(Swal);
+const initialFormData = {
+  id: "",
+  userid: "",
+  nisn: "",
+  name: "",
+  gender: "",
+  class_id: "",
+  class_name: "",
+  password: "",
+  role: "ADMIN",
+  description: "",
+  is_active: true,
+  created_at: new Date().toISOString(),
+  updated_at: "",
+};
 
 const Users = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,21 +58,8 @@ const Users = () => {
   const decoded = token ? jwtDecode(token) : {};
   const role = decoded.role;
 
-  const [formData, setFormData] = useState({
-    id: "",
-    userid: "",
-    nisn: "",
-    name: "",
-    gender: "",
-    class_id: "",
-    class_name: "",
-    password: "123456",
-    role: "admin",
-    description: "",
-    is_active: true,
-    created_at: new Date().toISOString(),
-    updated_at: "",
-  });
+  const [formData, setFormData] = useState(initialFormData);
+  const resetForm = () => setFormData({ ...initialFormData, created_at: new Date().toISOString() });
 
   // Handle input changes
   const handleInputChange = (e) => {
@@ -96,6 +98,7 @@ const Users = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setShowModal(false);
+      resetForm();
       MySwal.fire("Berhasil!", "User berhasil ditambahkan.", "success");
       fetchUsers();
     } catch (err) {
@@ -146,6 +149,7 @@ const Users = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setEditModalOpen(false);
+      resetForm();
       MySwal.fire("Berhasil!", "User berhasil diperbarui.", "success");
       fetchUsers();
     } catch (err) {
@@ -182,7 +186,7 @@ const Users = () => {
 
   const AddUserModal = () => (
     <Transition appear show={showModal} as={Fragment}>
-      <Dialog as="div" className="relative z-10" onClose={() => setShowModal(false)}>
+      <Dialog as="div" className="relative z-10" onClose={() => { setShowModal(false); resetForm(); }}>
         <TransitionChild as={Fragment}>
           <div className="fixed inset-0 bg-[rgba(0,0,0,0.3)] backdrop-blur-sm" />
         </TransitionChild>
@@ -281,7 +285,7 @@ const Users = () => {
               </div>
 
               <div className="mt-6 flex justify-end space-x-2">
-                <button onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-200 rounded-lg">
+                <button onClick={() => { setShowModal(false); resetForm(); }} className="px-4 py-2 bg-gray-200 rounded-lg">
                   Batal
                 </button>
                 <button onClick={handleSubmit} className="px-4 py-2 bg-emerald-600 text-white rounded-lg">
@@ -298,7 +302,7 @@ const Users = () => {
   // Modal Edit User (dengan field sama)
   const EditUserModal = () => (
     <Transition appear show={editModalOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-10" onClose={() => setEditModalOpen(false)}>
+      <Dialog as="div" className="relative z-10" onClose={() => { setEditModalOpen(false); resetForm(); }}>
         <TransitionChild as={Fragment}>
           <div className="fixed inset-0 bg-[rgba(0,0,0,0.3)] backdrop-blur-sm" />
         </TransitionChild>
@@ -340,7 +344,7 @@ const Users = () => {
               </div>
 
               <div className="mt-6 flex justify-end space-x-2">
-                <button onClick={() => setEditModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-lg">
+                <button onClick={() => { setEditModalOpen(false); resetForm(); }} className="px-4 py-2 bg-gray-200 rounded-lg">
                   Batal
                 </button>
                 <button onClick={handleUpdate} className="px-4 py-2 bg-emerald-600 text-white rounded-lg">
@@ -357,7 +361,7 @@ const Users = () => {
   // --- Modal khusus siswa ---
   const EditSiswaModal = () => (
     <Transition appear show={editSiswaModalOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-10" onClose={() => setEditSiswaModalOpen(false)}>
+      <Dialog as="div" className="relative z-10" onClose={() => { setEditSiswaModalOpen(false); resetForm(); }}>
         <TransitionChild as={Fragment}>
           <div className="fixed inset-0 bg-[rgba(0,0,0,0.3)] backdrop-blur-sm" />
         </TransitionChild>
@@ -438,7 +442,7 @@ const Users = () => {
 
               <div className="mt-6 flex justify-end space-x-2">
                 <button
-                  onClick={() => setEditSiswaModalOpen(false)}
+                  onClick={() => { setEditSiswaModalOpen(false); resetForm(); }}
                   className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                 >
                   Batal
@@ -452,6 +456,7 @@ const Users = () => {
                         { headers: { Authorization: `Bearer ${token}` } }
                       );
                       setEditSiswaModalOpen(false);
+                      resetForm();
                       MySwal.fire("Berhasil!", "Data siswa berhasil diperbarui.", "success");
                       fetchUsers();
                     } catch (err) {
@@ -485,7 +490,10 @@ const Users = () => {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => setShowModal(true)}
+              onClick={() => {
+                resetForm();
+                setShowModal(true);
+              }}
               className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg font-medium shadow-sm transition-colors duration-200"
             >
               + Tambah User
@@ -515,7 +523,7 @@ const Users = () => {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <div className="overflow-x-auto">
                 <UserTable
                   data={users}
                   onRefresh={fetchUsers}

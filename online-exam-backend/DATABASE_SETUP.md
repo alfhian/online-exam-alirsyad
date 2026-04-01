@@ -25,6 +25,7 @@ DB_NAME=al_irsyad_exam
 # Application Configuration
 NODE_ENV=development
 PORT=3000
+ENABLE_TYPEORM=false
 
 # JWT Configuration
 JWT_SECRET=your_jwt_secret_key_here
@@ -65,6 +66,46 @@ If you encounter connection issues:
 2. Check if the database exists: `psql -U postgres -l`
 3. Test connection: `psql -U postgres -d al_irsyad_exam`
 4. Ensure the password is correct (123)
+
+### Khusus deployment VPS (error `502 Bad Gateway`)
+
+Jika backend Anda memakai Supabase untuk query utama, biarkan `ENABLE_TYPEORM=false` agar NestJS tidak melakukan inisialisasi metadata TypeORM saat boot. Ini mencegah error startup (contoh: metadata entity tidak lengkap) yang akhirnya membuat endpoint API mengembalikan `502` dari Nginx karena upstream Node.js mati.
+
+Gunakan:
+
+```env
+ENABLE_TYPEORM=false
+```
+
+Lalu restart service backend (PM2/systemd/docker) dan cek health endpoint API.
+
+Jika masih muncul error:
+`null value in column "created_by" of relation "users" violates not-null constraint`,
+pastikan trigger default untuk tabel `users` sudah ada (migration terbaru). Untuk Supabase SQL editor, Anda bisa jalankan:
+
+```sql
+CREATE OR REPLACE FUNCTION set_users_created_by_default()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.id IS NULL THEN
+    NEW.id := gen_random_uuid();
+  END IF;
+
+  IF NEW.created_by IS NULL THEN
+    NEW.created_by := NEW.id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_set_users_created_by_default ON users;
+
+CREATE TRIGGER trg_set_users_created_by_default
+BEFORE INSERT ON users
+FOR EACH ROW
+EXECUTE FUNCTION set_users_created_by_default();
+```
 
 ## Entity Files
 

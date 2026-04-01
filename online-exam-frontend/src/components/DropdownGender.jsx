@@ -12,7 +12,8 @@ export default function GenderSelect({ gender, setGender }) {
 			value={options.find(opt => opt.value === gender)}
 			onChange={(opt) => setGender(opt?.value ?? null)}
 			placeholder="Pilih Jenis Kelamin"
-			className='w-full py-1 px-2 bg-white rounded-full'
+      className="w-full"
+      classNamePrefix="app-select"
 			isClearable
     />
   );
