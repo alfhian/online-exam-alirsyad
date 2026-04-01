@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
 const getPages = (current, totalPages, maxVisible = 5) => {
   const half = Math.floor(maxVisible / 2);
@@ -12,12 +13,24 @@ const getPages = (current, totalPages, maxVisible = 5) => {
   }
 
   const pages = [];
-  for (let i = start; i <= end; i++) pages.push(i);
+  for (let i = start; i <= end; i++) {
+    if (i > 0 && i <= totalPages) pages.push(i);
+  }
 
-  if (pages[0] > 1) pages.unshift('...');
-  if (pages[pages.length - 1] < totalPages) pages.push('...');
+  const result = [];
+  if (pages[0] > 1) {
+    result.push(1);
+    if (pages[0] > 2) result.push('...');
+  }
+  
+  result.push(...pages);
 
-  return pages;
+  if (pages[pages.length - 1] < totalPages) {
+    if (pages[pages.length - 1] < totalPages - 1) result.push('...');
+    result.push(totalPages);
+  }
+
+  return result;
 };
 
 
@@ -39,41 +52,48 @@ const Paginate = ({ total, pageSize = 10, maxVisible = 5 }) => {
     setSearchParams(newParams);
   };
 
+  if (totalPages <= 1) return null;
+
   return (
-    <div className="flex items-center justify-end gap-2 mt-6">
+    <div className="flex items-center justify-center sm:justify-end gap-1 mt-8">
       <button
         onClick={() => goToPage(currentPage - 1)}
         disabled={currentPage === 1}
-        className="px-2 py-2 rounded bg-gray-200 text-sm disabled:opacity-50"
+        className="h-10 w-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-emerald-300 transition-all disabled:opacity-30 disabled:hover:bg-white disabled:hover:border-slate-200"
+        title="Previous Page"
       >
-        Prev
+        <FaChevronLeft className="text-xs" />
       </button>
 
-      {pages.map((p, i) =>
-        p === '...' ? (
-          <span key={`ellipsis-${i}`} className="px-2 text-gray-400">...</span>
-        ) : (
-          <button
-            key={`page-${p}`}
-            onClick={() => goToPage(p)}
-            disabled={p === currentPage}
-            className={[`px-3 py-2 rounded text-sm ${
-              p === currentPage
-                ? 'bg-blue-600 text-white cursor-default opacity-70'
-                : 'bg-gray-100 hover:bg-gray-200'
-            }`,{ padding: '0 !important' }]}
-          >
-            {p}
-          </button>
-        )
-      )}
+      <div className="flex items-center gap-1 mx-2">
+        {pages.map((p, i) =>
+          p === '...' ? (
+            <span key={`ellipsis-${i}`} className="w-10 text-center text-slate-400 font-bold">...</span>
+          ) : (
+            <button
+              key={`page-${p}`}
+              onClick={() => goToPage(p)}
+              className={`h-10 min-w-[40px] px-3 flex items-center justify-center rounded-xl font-bold text-sm transition-all
+                ${
+                  p === currentPage
+                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-600'
+                }
+              `}
+            >
+              {p}
+            </button>
+          )
+        )}
+      </div>
 
       <button
         onClick={() => goToPage(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className="px-2 py-2 rounded bg-gray-200 text-sm disabled:opacity-50"
+        className="h-10 w-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-emerald-300 transition-all disabled:opacity-30 disabled:hover:bg-white disabled:hover:border-slate-200"
+        title="Next Page"
       >
-        Next
+        <FaChevronRight className="text-xs" />
       </button>
     </div>
   );

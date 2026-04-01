@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Req } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
@@ -41,7 +41,8 @@ export class ReportsController {
   }
 
   @Get('dashboard-charts')
-  getDashboardCharts() {
-    return this.reportsService.getDashboardCharts();
+  getDashboardCharts(@Req() req: any) {
+    const user = req.user;
+    return this.reportsService.getDashboardCharts(user);
   }
 }

@@ -1,9 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Menu, MenuButton, MenuItems, MenuItem, Transition } from "@headlessui/react";
-import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
+import { 
+  EllipsisVerticalIcon, 
+  PencilSquareIcon, 
+  UserGroupIcon, 
+  DocumentTextIcon, 
+  PlayIcon, 
+  EyeIcon, 
+  CheckBadgeIcon 
+} from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
-import axios from "axios";
+import api from "../api/axiosConfig";
 
 export default function ActionMenu({
   itemId,
@@ -21,22 +29,27 @@ export default function ActionMenu({
   const handleStartExam = async (examId) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
-
-      const { data } = await axios.get(
-        `${import.meta.env.VITE_API_BASE_URL}/exam-submissions/${examId}/me`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const { data } = await api.get(`/exam-submissions/${examId}/me`);
 
       if (data?.submitted) {
-        Swal.fire("Peringatan!", "Anda sudah mengerjakan ujian ini.", "warning");
+        Swal.fire({
+          title: "Peringatan!",
+          text: "Anda sudah mengerjakan ujian ini.",
+          icon: "warning",
+          customClass: { popup: 'rounded-3xl' }
+        });
         return;
       }
 
       navigate(`/student/exam/${examId}`);
     } catch (err) {
       console.error("Error check submission:", err);
-      Swal.fire("Error", "Gagal memeriksa status ujian", "error");
+      Swal.fire({
+        title: "Error",
+        text: "Gagal memeriksa status ujian",
+        icon: "error",
+        customClass: { popup: 'rounded-3xl' }
+      });
     } finally {
       setLoading(false);
     }
@@ -46,15 +59,31 @@ export default function ActionMenu({
   const handleViewDetail = () => navigate(`/exam-submissions/${itemId}`);
   const handleScoring = () => navigate(`/teacher-exam/submission/${itemId}`);
 
+  const ActionItem = ({ onClick, icon: Icon, label, variant = "default" }) => (
+    <MenuItem>
+      {({ active }) => (
+        <button
+          onClick={onClick}
+          className={`${
+            active ? "bg-slate-50 text-emerald-600" : "text-slate-600"
+          } group flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-colors`}
+        >
+          <Icon className={`h-4 w-4 transition-transform ${active ? 'scale-110' : ''}`} />
+          {label}
+        </button>
+      )}
+    </MenuItem>
+  );
+
   return (
     <div className="relative inline-block text-left">
       <Menu as="div" className="relative">
         <div>
           <MenuButton
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors focus:outline-none"
+            className="h-9 w-9 flex items-center justify-center hover:bg-slate-100 rounded-xl transition-all focus:outline-none border border-transparent hover:border-slate-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <EllipsisVerticalIcon className="h-5 w-5 text-gray-600" />
+            <EllipsisVerticalIcon className="h-5 w-5 text-slate-500" />
           </MenuButton>
         </div>
 
@@ -66,10 +95,8 @@ export default function ActionMenu({
           leaveFrom="transform opacity-100 scale-100"
           leaveTo="transform opacity-0 scale-95"
         >
-          {/* ✅ Fix overflow: gunakan fixed positioning dan z-50 */}
           <MenuItems
-            className="fixed z-50 mt-2 w-36 origin-top-right right-0 rounded-xl bg-white shadow-lg ring-1 ring-black/10 focus:outline-none"
-            style={{ transform: "translateX(-10px)" }}
+            className="fixed z-50 mt-2 w-48 origin-top-right right-0 rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200 focus:outline-none overflow-hidden"
           >
             <div className="py-1">
               {/* 🔧 Menu umum untuk Edit */}
@@ -78,131 +105,46 @@ export default function ActionMenu({
                  menu == "subjects" ||
                  menu == "questionnaire") &&
                 type !== "SISWA" && (
-                  <MenuItem>
-                    {({ active }) => (
-                      <button
-                        onClick={() => onEdit(itemId)}
-                        className={`${
-                          active ? "bg-emerald-50 text-emerald-700" : "text-gray-700"
-                        } w-full px-4 py-2 text-sm text-left`}
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </MenuItem>
+                  <ActionItem onClick={() => onEdit(itemId)} icon={PencilSquareIcon} label="Edit Data" />
                 )}
 
               {/* 🔧 Menu khusus siswa */}
               {menu === "user" && type === "SISWA" && (
-                <MenuItem>
-                  {({ active }) => (
-                    <button
-                      onClick={() => onEditSiswa(itemId)}
-                      className={`${
-                        active ? "bg-emerald-50 text-emerald-700" : "text-gray-700"
-                      } w-full px-4 py-2 text-sm text-left`}
-                    >
-                      Edit
-                    </button>
-                  )}
-                </MenuItem>
+                <ActionItem onClick={() => onEditSiswa(itemId)} icon={PencilSquareIcon} label="Edit Siswa" />
               )}
 
               {/* 🔧 Untuk remedial: daftar siswa */}
               {type === "REMEDIAL" && (
-                <MenuItem>
-                  {({ active }) => (
-                    <button
-                      onClick={() => onShowStudents(itemId)}
-                      className={`${
-                        active ? "bg-emerald-50 text-emerald-700" : "text-gray-700"
-                      } w-full px-4 py-2 text-sm text-left`}
-                    >
-                      Students
-                    </button>
-                  )}
-                </MenuItem>
+                <ActionItem onClick={() => onShowStudents(itemId)} icon={UserGroupIcon} label="Students" />
               )}
 
               {/* 🔧 Untuk ujian → buka questionnaire */}
               {menu === "exam" && (
-                <MenuItem>
-                  {({ active }) => (
-                    <button
-                      onClick={handleQuestionnaire}
-                      className={`${
-                        active ? "bg-emerald-50 text-emerald-700" : "text-gray-700"
-                      } w-full px-4 py-2 text-sm text-left`}
-                    >
-                      Questionnaire
-                    </button>
-                  )}
-                </MenuItem>
+                <ActionItem onClick={handleQuestionnaire} icon={DocumentTextIcon} label="Questionnaire" />
               )}
 
               {/* 🔧 Untuk siswa mulai ujian */}
               {menu === "studentExam" && (
-                <MenuItem>
-                  {({ active }) => (
-                    <button
-                      disabled={loading}
-                      onClick={() => handleStartExam(itemId)}
-                      className={`${
-                        active ? "bg-emerald-50 text-emerald-700" : "text-gray-700"
-                      } w-full px-4 py-2 text-sm text-left disabled:opacity-50`}
-                    >
-                      {loading ? "Loading..." : "Mulai Ujian"}
-                    </button>
-                  )}
-                </MenuItem>
+                <ActionItem 
+                  onClick={() => handleStartExam(itemId)} 
+                  icon={PlayIcon} 
+                  label={loading ? "Loading..." : "Mulai Ujian"} 
+                />
               )}
 
               {/* 🔧 Halaman hasil ujian */}
               {menu === "submittedExam" && (
-                <MenuItem>
-                  {({ active }) => (
-                    <button
-                      onClick={handleViewDetail}
-                      className={`${
-                        active ? "bg-emerald-50 text-emerald-700" : "text-gray-700"
-                      } w-full px-4 py-2 text-sm text-left`}
-                    >
-                      Lihat Detail
-                    </button>
-                  )}
-                </MenuItem>
+                <ActionItem onClick={handleViewDetail} icon={EyeIcon} label="Lihat Detail" />
               )}
 
               {/* 🔧 Guru lihat daftar siswa */}
               {menu === "teacherExam" && (
-                <MenuItem>
-                  {({ active }) => (
-                    <button
-                      onClick={() => onShowStudents(itemId)}
-                      className={`${
-                        active ? "bg-emerald-50 text-emerald-700" : "text-gray-700"
-                      } w-full px-4 py-2 text-sm text-left`}
-                    >
-                      List Students
-                    </button>
-                  )}
-                </MenuItem>
+                <ActionItem onClick={() => onShowStudents(itemId)} icon={UserGroupIcon} label="Daftar Siswa" />
               )}
 
               {/* 🔧 Guru memberi nilai */}
               {menu === "teacherExamSubmission" && (
-                <MenuItem>
-                  {({ active }) => (
-                    <button
-                      onClick={handleScoring}
-                      className={`${
-                        active ? "bg-emerald-50 text-emerald-700" : "text-gray-700"
-                      } w-full px-4 py-2 text-sm text-left`}
-                    >
-                      Scoring
-                    </button>
-                  )}
-                </MenuItem>
+                <ActionItem onClick={handleScoring} icon={CheckBadgeIcon} label="Beri Nilai" />
               )}
             </div>
           </MenuItems>

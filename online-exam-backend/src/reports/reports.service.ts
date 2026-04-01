@@ -139,18 +139,24 @@ export class ReportsService {
     );
   }
 
-  async getDashboardCharts() {
+  async getDashboardCharts(user: any) {
     const currentYear = new Date().getFullYear();
     const startYear = currentYear - 4;
 
     const years = Array.from({ length: 5 }, (_, idx) => startYear + idx);
 
+    let submissionsQuery = this.supabase
+      .from('exam_submissions')
+      .select('created_at,score,exams!inner(created_by)')
+      .gte('created_at', `${startYear}-01-01T00:00:00`)
+      .lte('created_at', `${currentYear}-12-31T23:59:59`);
+
+    if (user.role === 'GURU') {
+      submissionsQuery = submissionsQuery.eq('exams.created_by', user.sub);
+    }
+
     const [submissionsRes, usersRes] = await Promise.all([
-      this.supabase
-        .from('exam_submissions')
-        .select('created_at,score')
-        .gte('created_at', `${startYear}-01-01T00:00:00`)
-        .lte('created_at', `${currentYear}-12-31T23:59:59`),
+      submissionsQuery,
       this.supabase.from('users').select('role').is('deleted_at', null),
     ]);
 
