@@ -172,6 +172,7 @@ export class ExamSessionService {
           .update({
             file_name: compressedName,
             file_url: publicUrl,
+            student_id: user?.sub,
             updated_by: user?.sub,
             updated_at: new Date(),
           })
@@ -180,6 +181,8 @@ export class ExamSessionService {
         await this.supabase.from("exam_submissions").insert({
           session_id: sessionId,
           exam_id: session.exam_id,
+          student_id: user?.sub,
+          answers: {},
           file_name: compressedName,
           file_url: publicUrl,
           created_by: user?.sub,
@@ -195,7 +198,7 @@ export class ExamSessionService {
     } catch (err) {
       console.error("UPLOAD ERROR:", err);
       throw new InternalServerErrorException(
-        "Failed to upload or compress video"
+        err?.message || "Failed to upload or compress video"
       );
     }
   }

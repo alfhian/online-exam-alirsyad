@@ -7,7 +7,7 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
 } from 'typeorm';
-import type { Choice } from '../../choices/entities/choice.entity';
+import { Choice } from '../../choices/entities/choice.entity';
 
 export type QuestionType = 'multiple_choice' | 'essay';
 
@@ -31,7 +31,7 @@ export class Question {
   @Column({ type: 'text', nullable: true })
   answer?: string;
 
-  @OneToMany('Choice', 'question')
+  @OneToMany(() => Choice, (choice) => choice.question)
   choices?: Choice[];
 
   @CreateDateColumn()

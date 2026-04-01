@@ -9,7 +9,8 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
       provide: SupabaseClient,
       useFactory: () => {
         const url = process.env.SUPABASE_URL!;
-        const key = process.env.SUPABASE_KEY!;
+        const key =
+          process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY!;
         return createClient(url, key);
       },
     },
