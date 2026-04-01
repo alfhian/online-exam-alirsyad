@@ -17,6 +17,7 @@ import { User } from './entities/user.entity';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
+import * as bcrypt from 'bcryptjs';
 
 @Controller('users')
 @UseGuards(AuthGuard('jwt'))
@@ -89,13 +90,17 @@ export class UsersController {
   @Roles(Role.ADMIN)
   async create(@Body() body: Partial<User>, @Req() req: Request) {
     const createdBy = (req as any)?.user?.sub ?? null;
+    const defaultPassword = process.env.DEFAULT_NEW_USER_PASSWORD || 'ChangeMe#2026';
 
     if (!body.name || !body.userid || !body.role) {
       throw new BadRequestException('Missing required fields');
     }
 
+    const hashedPassword = bcrypt.hashSync(defaultPassword, 10);
+
     return this.usersService.createUser({
       ...body,
+      password: hashedPassword,
       created_by: createdBy,
     });
   }

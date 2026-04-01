@@ -182,10 +182,11 @@ export class ReportsService {
       };
     });
 
+    const normalizedRoles = users.map((user: any) => String(user.role || '').toUpperCase());
     const roleSummary = {
-      siswa: users.filter((user: any) => user.role === 'SISWA').length,
-      guru: users.filter((user: any) => user.role === 'GURU').length,
-      admin: users.filter((user: any) => user.role === 'ADMIN').length,
+      siswa: normalizedRoles.filter((role) => role === 'SISWA').length,
+      guru: normalizedRoles.filter((role) => role === 'GURU').length,
+      admin: normalizedRoles.filter((role) => role === 'ADMIN').length,
     };
 
     return {
