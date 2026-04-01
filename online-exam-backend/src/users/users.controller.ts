@@ -112,7 +112,8 @@ export class UsersController {
   @Roles(Role.ADMIN)
   async create(@Body() body: Partial<User>, @Req() req: Request) {
     const createdBy = (req as any)?.user?.sub ?? null;
-    const defaultPassword = '123456';
+    const defaultPassword =
+      this.normalizeDefaultPassword(process.env.DEFAULT_NEW_USER_PASSWORD) || '123456';
 
     if (!body.name || !body.userid || !body.role) {
       throw new BadRequestException('Missing required fields');

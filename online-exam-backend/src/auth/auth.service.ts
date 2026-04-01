@@ -8,7 +8,18 @@ import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
-  private readonly defaultPassword = '123456';
+  private getDefaultPassword(): string {
+    const normalized = String(process.env.DEFAULT_NEW_USER_PASSWORD ?? '').trim();
+    if (!normalized) return '123456';
+
+    const quotedDouble = normalized.startsWith('"') && normalized.endsWith('"');
+    const quotedSingle = normalized.startsWith("'") && normalized.endsWith("'");
+    if ((quotedDouble || quotedSingle) && normalized.length >= 2) {
+      return normalized.slice(1, -1).trim() || '123456';
+    }
+
+    return normalized;
+  }
   private readonly uuidRegex =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -34,7 +45,7 @@ export class AuthService {
    */
   async register(dto: RegisterDto) {
     const userid = String(dto.userid ?? '').trim();
-    const rawPassword = String(dto.password ?? '').trim() || this.defaultPassword;
+    const rawPassword = String(dto.password ?? '').trim() || this.getDefaultPassword();
     if (!userid) {
       throw new BadRequestException('User ID tidak boleh kosong');
     }
