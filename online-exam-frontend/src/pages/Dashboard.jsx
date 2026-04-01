@@ -25,6 +25,15 @@ const emptyCharts = {
   roleSummary: { siswa: 0, guru: 0, admin: 0 },
 };
 
+const buildFiveYearSeries = () => {
+  const currentYear = new Date().getFullYear();
+  return Array.from({ length: 5 }, (_, idx) => ({
+    year: currentYear - 4 + idx,
+    total: 0,
+    average: 0,
+  }));
+};
+
 const StatCard = ({ icon: Icon, title, value, tone = "emerald" }) => {
   const toneClass =
     {
@@ -50,12 +59,13 @@ const StatCard = ({ icon: Icon, title, value, tone = "emerald" }) => {
 };
 
 const BarChartCard = ({ title, items }) => {
-  const max = Math.max(...items.map((item) => item.total), 1);
+  const series = items?.length ? items : buildFiveYearSeries();
+  const max = Math.max(...series.map((item) => item.total), 1);
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
       <div className="mt-4 space-y-3">
-        {items.map((item) => (
+        {series.map((item) => (
           <div key={item.year}>
             <div className="mb-1 flex justify-between text-sm text-slate-600">
               <span>{item.year}</span>
@@ -64,7 +74,7 @@ const BarChartCard = ({ title, items }) => {
             <div className="h-3 rounded-full bg-slate-100">
               <div
                 className="h-3 rounded-full bg-gradient-to-r from-blue-500 to-emerald-400"
-                style={{ width: `${(item.total / max) * 100}%` }}
+                style={{ width: `${Math.max((item.total / max) * 100, 4)}%` }}
               />
             </div>
           </div>
@@ -75,11 +85,15 @@ const BarChartCard = ({ title, items }) => {
 };
 
 const PieChartCard = ({ title, roleSummary }) => {
-  const items = [
+  let items = [
     { label: "Siswa", value: roleSummary.siswa || 0 },
     { label: "Guru", value: roleSummary.guru || 0 },
     { label: "Admin", value: roleSummary.admin || 0 },
   ];
+  const rawTotal = items.reduce((acc, item) => acc + item.value, 0);
+  if (rawTotal === 0) {
+    items = items.map((item) => ({ ...item, value: 1 }));
+  }
   const total = items.reduce((acc, item) => acc + item.value, 0) || 1;
   let cumulative = 0;
   const colors = ["#22c55e", "#3b82f6", "#8b5cf6", "#f59e0b"];
@@ -111,7 +125,9 @@ const PieChartCard = ({ title, roleSummary }) => {
             <div key={slice.label} className="flex items-center gap-2 text-sm">
               <span className="h-3 w-3 rounded-full" style={{ backgroundColor: slice.color }} />
               <span className="text-slate-600">{slice.label}</span>
-              <span className="font-semibold text-slate-800">{slice.value}</span>
+              <span className="font-semibold text-slate-800">
+                {rawTotal === 0 ? 0 : slice.value}
+              </span>
             </div>
           ))}
         </div>
@@ -121,11 +137,12 @@ const PieChartCard = ({ title, roleSummary }) => {
 };
 
 const LineChartCard = ({ title, items }) => {
-  const max = Math.max(...items.map((item) => item.average), 1);
-  const points = items
+  const series = items?.length ? items : buildFiveYearSeries();
+  const max = Math.max(...series.map((item) => item.average), 1);
+  const points = series
     .map((item, idx) => {
-      const x = (idx / Math.max(items.length - 1, 1)) * 100;
-      const y = 100 - (item.average / max) * 90;
+      const x = (idx / Math.max(series.length - 1, 1)) * 100;
+      const y = 95 - (item.average / max) * 85;
       return `${x},${y}`;
     })
     .join(" ");
@@ -138,7 +155,7 @@ const LineChartCard = ({ title, items }) => {
         <polyline points={points} fill="none" stroke="#16a34a" strokeWidth="2.5" />
       </svg>
       <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600 md:grid-cols-4">
-        {items.map((item) => (
+        {series.map((item) => (
           <div key={item.year} className="rounded-lg bg-slate-50 px-2 py-1">
             {item.year}: <span className="font-semibold text-slate-800">{item.average}</span>
           </div>
@@ -173,7 +190,9 @@ const Dashboard = () => {
             api.get("/users/role", { params: { role: "SISWA", page: 1, limit: 1 } }),
             api.get("/subjects", { params: { page: 1, limit: 1 } }),
             api.get("/exams", { params: { page: 1, limit: 1 } }),
-            api.get("/reports/dashboard-charts"),
+            api
+              .get("/reports/dashboard-charts")
+              .catch(() => ({ data: emptyCharts })),
           ]);
 
           setSummary({
@@ -192,7 +211,9 @@ const Dashboard = () => {
           const [teacherExamRes, subjectsRes, chartRes] = await Promise.all([
             api.get("/teacher-exams", { params: { page: 1, limit: 1 } }),
             api.get("/subjects", { params: { page: 1, limit: 1 } }),
-            api.get("/reports/dashboard-charts"),
+            api
+              .get("/reports/dashboard-charts")
+              .catch(() => ({ data: emptyCharts })),
           ]);
 
           setSummary({
