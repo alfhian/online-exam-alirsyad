@@ -112,15 +112,13 @@ export class UsersController {
   @Roles(Role.ADMIN)
   async create(@Body() body: Partial<User>, @Req() req: Request) {
     const createdBy = (req as any)?.user?.sub ?? null;
-    const defaultPassword =
-      this.normalizeDefaultPassword(process.env.DEFAULT_NEW_USER_PASSWORD) ||
-      'ChangeMe#2026';
+    const defaultPassword = '123456';
 
     if (!body.name || !body.userid || !body.role) {
       throw new BadRequestException('Missing required fields');
     }
 
-    const requestedPassword = this.normalizePasswordInput(body.password);
+    const requestedPassword = this.normalizeDefaultPassword(body.password);
     const passwordSource = requestedPassword || defaultPassword;
     const hashedPassword = bcrypt.hashSync(passwordSource, 10);
 

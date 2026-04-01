@@ -69,7 +69,7 @@ export class ExamSessionService {
       .from("exam_sessions")
       .update({
         finished: true,
-        finished_at: new Date(),
+        updated_at: new Date(),
       })
       .eq("id", sessionId)
       .select()
