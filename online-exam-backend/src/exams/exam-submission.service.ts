@@ -4,6 +4,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 export interface CreateExamSubmissionDto {
   exam_id: string;
   student_id: string;
+  session_id: string;
   answers: any[];
   created_by: string;
 }
@@ -122,10 +123,11 @@ export class ExamSubmissionService {
   // SUBMIT EXAM
   // ================================
   async submit(dto: CreateExamSubmissionDto) {
-    const { exam_id, student_id, answers, created_by } = dto;
+    const { exam_id, student_id, session_id, answers, created_by } = dto;
 
     if (!exam_id) throw new BadRequestException('exam_id is required');
     if (!student_id) throw new BadRequestException('student_id is required');
+    if (!session_id) throw new BadRequestException('session_id is required');
     if (!Array.isArray(answers)) throw new BadRequestException('answers must be an array');
 
     // Check existing submission
@@ -145,7 +147,7 @@ export class ExamSubmissionService {
     // Insert new submission
     const { data, error } = await this.supabase
       .from('exam_submissions')
-      .insert({ exam_id, student_id, answers, created_by })
+      .insert({ exam_id, student_id, session_id, answers, created_by })
       .select('*')
       .single();
 

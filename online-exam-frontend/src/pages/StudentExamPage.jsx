@@ -305,6 +305,7 @@ const StudentExamPage = () => {
           question_id,
           answer,
         })),
+        sessionId: sessionId,
       };
 
       await axios.post(

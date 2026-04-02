@@ -2,6 +2,7 @@ export class ExamSubmission {
   id: string;
   exam_id: string;
   student_id: string;
+  session_id: string;
 
   // JSON berisi array jawaban
   answers: {
@@ -20,6 +21,7 @@ export class ExamSubmission {
 
   file_name?: string;
   file_path?: string;
+  file_url?: string;
 
   // Relasi manual (opsional)
   exam?: any;

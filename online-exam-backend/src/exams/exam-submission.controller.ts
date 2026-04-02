@@ -49,7 +49,7 @@ export class ExamSubmissionController {
   @Post(':examId')
   async submitExam(
     @Param('examId') examId: string,
-    @Body() body: { answers: any[] },
+    @Body() body: { answers: any[]; sessionId: string },
     @Req() req: any,
   ) {
     const studentId = req.user?.sub;
@@ -57,9 +57,14 @@ export class ExamSubmissionController {
       throw new BadRequestException('answers must be an array');
     }
 
+    if (!body.sessionId) {
+      throw new BadRequestException('sessionId is required');
+    }
+
     return this.examSubmissionService.submit({
       exam_id: examId,
       student_id: studentId,
+      session_id: body.sessionId,
       answers: body.answers,
       created_by: studentId,
     });

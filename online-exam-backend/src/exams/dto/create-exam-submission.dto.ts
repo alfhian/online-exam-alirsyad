@@ -19,6 +19,10 @@ export class CreateExamSubmissionDto {
   @IsNotEmpty()
   student_id: string;
 
+  @IsUUID()
+  @IsNotEmpty()
+  session_id: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => AnswerDto)
