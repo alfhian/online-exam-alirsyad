@@ -148,26 +148,36 @@ export class ExamSessionService {
           upsert: true,
         });
 
-      if (uploadErr)
-        throw new InternalServerErrorException(uploadErr.message);
+      if (uploadErr) {
+        console.error("SUPABASE UPLOAD ERROR:", uploadErr);
+        throw new InternalServerErrorException(`Supabase Storage Error: ${uploadErr.message}`);
+      }
 
       const publicUrl = this.supabase.storage
         .from("exam-recordings")
         .getPublicUrl(storagePath).data.publicUrl;
+
+      if (!publicUrl) {
+        throw new InternalServerErrorException("Failed to generate public URL for the recording");
+      }
 
       fs.unlinkSync(compressedPath); // clear local
 
       /* =========================================
        * UPDATE / INSERT exam_submissions
        * =========================================*/
-      const { data: submission } = await this.supabase
+      const { data: submission, error: subSelectErr } = await this.supabase
         .from("exam_submissions")
         .select("*")
         .eq("session_id", sessionId)
         .single();
 
+      if (subSelectErr && subSelectErr.code !== 'PGRST116') {
+        throw new InternalServerErrorException(`Database Error: ${subSelectErr.message}`);
+      }
+
       if (submission) {
-        await this.supabase
+        const { error: updateErr } = await this.supabase
           .from("exam_submissions")
           .update({
             file_name: compressedName,
@@ -177,8 +187,10 @@ export class ExamSessionService {
             updated_at: new Date(),
           })
           .eq("id", submission.id);
+
+        if (updateErr) throw new InternalServerErrorException(`Update Submission Error: ${updateErr.message}`);
       } else {
-        await this.supabase.from("exam_submissions").insert({
+        const { error: insertErr } = await this.supabase.from("exam_submissions").insert({
           session_id: sessionId,
           exam_id: session.exam_id,
           student_id: user?.sub,
@@ -187,6 +199,8 @@ export class ExamSessionService {
           file_url: publicUrl,
           created_by: user?.sub,
         });
+
+        if (insertErr) throw new InternalServerErrorException(`Insert Submission Error: ${insertErr.message}`);
       }
 
       return {
