@@ -166,15 +166,18 @@ export class ExamSessionService {
       /* =========================================
        * UPDATE / INSERT exam_submissions
        * =========================================*/
-      const { data: submission, error: subSelectErr } = await this.supabase
+      const { data: submissions, error: subSelectErr } = await this.supabase
         .from("exam_submissions")
-        .select("*")
+        .select("id")
         .eq("session_id", sessionId)
-        .single();
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-      if (subSelectErr && subSelectErr.code !== 'PGRST116') {
+      if (subSelectErr) {
         throw new InternalServerErrorException(`Database Error: ${subSelectErr.message}`);
       }
+
+      const submission = submissions?.[0];
 
       if (submission) {
         const { error: updateErr } = await this.supabase
