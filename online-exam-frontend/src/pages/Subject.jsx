@@ -16,6 +16,7 @@ import {
   TransitionChild,
 } from "@headlessui/react";
 import ClassSelect from "../components/DropdownClass";
+import TeacherSelect from "../components/DropdownTeacher";
 import api from "../api/axiosConfig";
 
 const MySwal = withReactContent(Swal);
@@ -24,6 +25,7 @@ const initialSubjectForm = {
   name: "",
   description: "",
   class_id: "",
+  teacher_id: "",
 };
 
 const Subjects = () => {
@@ -75,6 +77,11 @@ const Subjects = () => {
   }, [search, sort, order, page]);
 
   const handleSubmit = async () => {
+    if (!formData.name || !formData.class_id || !formData.teacher_id) {
+      MySwal.fire("Gagal!", "Silakan isi Nama, Kelas, dan Guru Pengampu!", "error");
+      return;
+    }
+
     try {
       await api.post("/subjects", formData, {
         headers: {
@@ -87,7 +94,8 @@ const Subjects = () => {
       MySwal.fire("Berhasil!", "Mata Pelajaran berhasil ditambahkan.", "success");
       fetchData();
     } catch (err) {
-      MySwal.fire("Gagal!", "Gagal menambah Mata Pelajaran.", "error");
+      const msg = err.response?.data?.message || "Gagal menambah Mata Pelajaran.";
+      MySwal.fire("Gagal!", msg, "error");
       console.error("Failed to add subject:", err);
     }
   };
@@ -105,6 +113,7 @@ const Subjects = () => {
         name: data.name,
         description: data.description,
         class_id: data.class_id,
+        teacher_id: data.teacher_id,
       });
       setSelectedId(data.id);
       setEditModalOpen(true);
@@ -115,6 +124,11 @@ const Subjects = () => {
   };
 
   const handleUpdate = async () => {
+    if (!formData.name || !formData.class_id || !formData.teacher_id) {
+      MySwal.fire("Gagal!", "Silakan isi Nama, Kelas, dan Guru Pengampu!", "error");
+      return;
+    }
+
     try {
       await api.put(
         `/subjects/${selectedId}`,
@@ -130,7 +144,8 @@ const Subjects = () => {
       MySwal.fire("Berhasil!", "Mata Pelajaran berhasil diperbarui.", "success");
       fetchData();
     } catch (err) {
-      MySwal.fire("Gagal!", "Gagal memperbarui Mata Pelajaran.", "error");
+      const msg = err.response?.data?.message || "Gagal memperbarui Mata Pelajaran.";
+      MySwal.fire("Gagal!", msg, "error");
       console.error("Failed to update subject:", err);
     }
   };
@@ -268,6 +283,20 @@ const Subjects = () => {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700">
+                          Guru Pengampu
+                        </label>
+                        <div className="border border-gray-300 rounded-lg">
+                          <TeacherSelect
+                            teacherId={formData.teacher_id}
+                            setTeacherId={(value) =>
+                              setFormData((prev) => ({ ...prev, teacher_id: value }))
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
                           Deskripsi
                         </label>
                         <textarea
@@ -354,6 +383,20 @@ const Subjects = () => {
                             classes={formData.class_id}
                             setClasses={(value) =>
                               setFormData((prev) => ({ ...prev, class_id: value }))
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Guru Pengampu
+                        </label>
+                        <div className="border border-gray-300 rounded-lg">
+                          <TeacherSelect
+                            teacherId={formData.teacher_id}
+                            setTeacherId={(value) =>
+                              setFormData((prev) => ({ ...prev, teacher_id: value }))
                             }
                           />
                         </div>

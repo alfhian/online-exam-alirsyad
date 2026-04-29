@@ -1,8 +1,8 @@
 import Select from 'react-select';
 
 const options = [
-  { value: 'L', label: 'Laki-laki' },
-  { value: 'P', label: 'Perempuan' },
+  { value: 'L', label: 'Laki-laki (L)' },
+  { value: 'P', label: 'Perempuan (P)' },
 ];
 
 export default function GenderSelect({ gender, setGender }) {

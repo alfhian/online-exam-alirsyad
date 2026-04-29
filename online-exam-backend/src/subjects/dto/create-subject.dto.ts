@@ -10,6 +10,10 @@ export class CreateSubjectDto {
 
   @IsOptional()
   @IsString()
+  teacher_id?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(255, { message: 'Description must be at most 255 characters long' })
   description?: string;
 

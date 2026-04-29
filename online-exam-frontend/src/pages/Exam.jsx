@@ -81,6 +81,11 @@ const Exam = () => {
   }, [search, sort, order, page]);
 
   const handleSubmit = async () => {
+    if (!formData.title || !formData.subject_id || !formData.type || !formData.date || !formData.duration) {
+      MySwal.fire("Gagal!", "Silakan lengkapi semua isian wajib (Judul, Mata Pelajaran, Jenis, Tanggal, dan Durasi)!", "error");
+      return;
+    }
+
     try {
       await api.post("/exams", formData, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
@@ -95,10 +100,11 @@ const Exam = () => {
         showConfirmButton: false,
       });
       fetchExams();
-    } catch {
+    } catch (err) {
+      const msg = err.response?.data?.message || "Tidak dapat menambah ujian.";
       MySwal.fire({
         title: "Gagal!",
-        text: `Tidak dapat menambah ujian.`,
+        text: msg,
         icon: "error",
       });
     }
@@ -131,6 +137,11 @@ const Exam = () => {
   };
 
   const handleUpdate = async () => {
+    if (!formData.title || !formData.subject_id || !formData.type || !formData.date || !formData.duration) {
+      MySwal.fire("Gagal!", "Silakan lengkapi semua isian wajib!", "error");
+      return;
+    }
+
     try {
       await api.put(
         `/exams/${selectedId}`,
@@ -147,10 +158,11 @@ const Exam = () => {
         showConfirmButton: false,
       });
       fetchExams();
-    } catch {
+    } catch (err) {
+      const msg = err.response?.data?.message || "Tidak dapat memperbarui ujian.";
       MySwal.fire({
         title: "Gagal!",
-        text: "Tidak dapat memperbarui ujian.",
+        text: msg,
         icon: "error",
       });
     }

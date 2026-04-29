@@ -63,7 +63,7 @@ export class AuthService {
       password: hashed,
       name: dto.name,
       role: dto.role,
-      is_active: dto.is_active ?? true,
+      is_active: dto.is_active ?? false,
       created_at: new Date(),
       created_by: createdBy,
     });

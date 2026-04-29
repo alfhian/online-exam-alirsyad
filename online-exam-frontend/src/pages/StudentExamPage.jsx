@@ -2,13 +2,13 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
+import RichTextRenderer from "../components/RichTextRenderer";
 
 /* ---------------- Helper ---------------- */
-const formatTime = (seconds) => {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${s < 10 ? "0" : ""}${s}`;
-};
+
+// 🔊 Alarm Sound for Fraud Detection
+const alarm = new Audio("https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3");
+alarm.loop = true;
 
 const StudentExamPage = () => {
   const { examId } = useParams();
@@ -25,6 +25,7 @@ const StudentExamPage = () => {
   const [timeLeft, setTimeLeft] = useState(0);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [violationCount, setViolationCount] = useState(0);
 
   // Refs
   const submittingRef = useRef(false);
@@ -88,13 +89,46 @@ const StudentExamPage = () => {
   }, [exam, navigate]);
 
   /* ---------------- Proctoring ---------------- */
+  const violationRef = useRef(0);
+  const alarm = useRef(new Audio("https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3"));
+
   useEffect(() => {
     if (!started) return;
 
+    const currentAlarm = alarm.current;
+    currentAlarm.loop = true;
+
     const token = localStorage.getItem("token");
     const showWarning = async (msg) => {
-      Swal.fire("Peringatan!", msg, "warning");
-      if (sessionId && !submitting) {
+      // Play alarm
+      currentAlarm.play().catch(e => console.log("Autoplay blocked or audio error", e));
+      
+      violationRef.current += 1;
+
+      if (violationRef.current >= 3) {
+        await Swal.fire({
+          title: "DISKUALIFIKASI!",
+          text: "Anda telah melakukan pelanggaran lebih dari 2 kali. Sesi ujian Anda dihentikan.",
+          icon: "error",
+          confirmButtonText: "OK",
+        });
+        currentAlarm.pause();
+        localStorage.removeItem("token");
+        window.location.href = "/"; // Force hard redirect
+        return;
+      }
+
+      await Swal.fire({
+        title: "Peringatan!",
+        text: `${msg} (Pelanggaran ke-${violationRef.current}/2)`,
+        icon: "warning",
+        confirmButtonText: "Saya Mengerti",
+      });
+
+      currentAlarm.pause();
+      currentAlarm.currentTime = 0;
+
+      if (sessionId && !submittingRef.current) {
         await axios.post(
           `${import.meta.env.VITE_API_BASE_URL}/exam-sessions/${sessionId}/tab-switch`,
           {},
@@ -108,7 +142,6 @@ const StudentExamPage = () => {
         showWarning("Anda keluar dari fullscreen!");
       }
     };
-    const handleBlur = () => showWarning("Jangan tinggalkan halaman ujian!");
     const handleVisibilityChange = () => {
       if (document.hidden && !submittingRef.current) {
         showWarning("Anda tidak boleh berpindah tab!");
@@ -120,15 +153,14 @@ const StudentExamPage = () => {
     };
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);
-    window.addEventListener("blur", handleBlur);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      window.removeEventListener("blur", handleBlur);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("beforeunload", handleBeforeUnload);
+      currentAlarm.pause();
     };
   }, [started, sessionId]);
 
@@ -252,8 +284,14 @@ const StudentExamPage = () => {
       setSessionId(data.id);
       setStarted(true);
 
-      if (document.documentElement.requestFullscreen) {
-        await document.documentElement.requestFullscreen();
+      // 🔹 Robust Fullscreen Request
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) {
+        await elem.requestFullscreen();
+      } else if (elem.webkitRequestFullscreen) { /* Safari */
+        await elem.webkitRequestFullscreen();
+      } else if (elem.msRequestFullscreen) { /* IE11 */
+        await elem.msRequestFullscreen();
       }
 
       startRecording(data.id);
@@ -352,6 +390,25 @@ const StudentExamPage = () => {
     }
   };
 
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handleFsChange);
+    return () => document.removeEventListener("fullscreenchange", handleFsChange);
+  }, []);
+
+  const requestFullscreen = async () => {
+    const elem = document.documentElement;
+    try {
+      if (elem.requestFullscreen) await elem.requestFullscreen();
+      else if (elem.webkitRequestFullscreen) await elem.webkitRequestFullscreen();
+      else if (elem.msRequestFullscreen) await elem.msRequestFullscreen();
+    } catch (err) {
+      console.error("Fullscreen error:", err);
+    }
+  };
+
   /* ---------------- Render ---------------- */
   if (loading) return <p className="p-6">Loading...</p>;
 
@@ -396,11 +453,21 @@ const StudentExamPage = () => {
     <div className="w-screen h-screen bg-gradient-to-b from-blue-50 to-white flex flex-col">
       {/* Header Ujian */}
       <header className="flex justify-between items-center px-6 py-4 bg-white shadow-md sticky top-0 z-10">
-        <div className="flex flex-col">
-          <h1 className="text-2xl font-bold text-blue-700">{exam?.title}</h1>
-          <p className="text-sm text-gray-500">
-            Fokus dan kerjakan dengan tenang 💪
-          </p>
+        <div className="flex items-center gap-4">
+          {!isFullscreen && (
+            <button
+              onClick={requestFullscreen}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold animate-pulse hover:bg-red-700 transition-colors shadow-lg"
+            >
+              ⚠️ Kembali ke Fullscreen
+            </button>
+          )}
+          <div className="flex flex-col">
+            <h1 className="text-2xl font-bold text-blue-700">{exam?.title}</h1>
+            <p className="text-sm text-gray-500">
+              Fokus dan kerjakan dengan tenang 💪
+            </p>
+          </div>
         </div>
         <div className="text-right">
           <div className="text-xl font-bold text-red-600 animate-pulse">
@@ -427,12 +494,12 @@ const StudentExamPage = () => {
                 className="mb-8 p-6 bg-white rounded-2xl shadow hover:shadow-lg transition-shadow duration-200"
               >
                 <div className="flex items-start gap-3 mb-3">
-                  <span className="bg-blue-600 text-white w-8 h-8 flex items-center justify-center rounded-full font-semibold">
+                  <span className="flex-shrink-0 bg-blue-600 text-white w-8 h-8 flex items-center justify-center rounded-full font-semibold">
                     {index + 1}
                   </span>
-                  <p className="font-semibold text-gray-800 leading-relaxed text-lg">
-                    {q.question}
-                  </p>
+                  <div className="font-semibold text-gray-800 leading-relaxed text-lg flex-1">
+                    <RichTextRenderer content={q.question} />
+                  </div>
                 </div>
 
                 {/* Opsi Pilihan Ganda */}

@@ -8,7 +8,8 @@ import {
   DocumentTextIcon, 
   PlayIcon, 
   EyeIcon, 
-  CheckBadgeIcon 
+  CheckBadgeIcon,
+  TrashIcon 
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import api from "../api/axiosConfig";
@@ -21,6 +22,7 @@ export default function ActionMenu({
   onShowStudents,
   onEditSiswa,
   onStart,
+  onDelete,
 }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -145,6 +147,17 @@ export default function ActionMenu({
               {/* 🔧 Guru memberi nilai */}
               {menu === "teacherExamSubmission" && (
                 <ActionItem onClick={handleScoring} icon={CheckBadgeIcon} label="Beri Nilai" />
+              )}
+
+              {/* 🗑️ Hapus (untuk menu yang mendukung) */}
+              {onDelete && (
+                <div className="border-t border-slate-100 my-1">
+                  <ActionItem 
+                    onClick={() => onDelete(itemId)} 
+                    icon={TrashIcon} 
+                    label="Hapus" 
+                  />
+                </div>
               )}
             </div>
           </MenuItems>

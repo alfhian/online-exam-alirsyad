@@ -49,7 +49,7 @@ export class ExamService {
     const offset = (page - 1) * limit;
 
     let query = this.supabase
-      .from<'exams', Exam>('exams')
+      .from('exams')
       .select('*', { count: 'exact' })
       .is('deleted_at', null);
 
@@ -227,23 +227,61 @@ export class ExamService {
     const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
     const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
 
+    // 1. Ambil data student (untuk tahu kelasnya)
+    const { data: student, error: stuError } = await this.supabase
+      .from('users')
+      .select('class_name')
+      .eq('id', studentId)
+      .single();
+
+    if (stuError || !student) throw new NotFoundException('Student not found');
+
+    // 2. Ambil ID subject yang sesuai dengan kelas student
+    const { data: validSubjects } = await this.supabase
+      .from('subjects')
+      .select('id')
+      .eq('class_id', student.class_name)
+      .is('deleted_at', null);
+
+    const subjectIds = (validSubjects || []).map(s => s.id);
+    if (subjectIds.length === 0) {
+      return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
+    }
+
+    // 3. Query exams yang filter by subjectIds dan date hari ini
     let query = this.supabase
-      .from<'exams', Exam>('exams')
-      .select('*', { count: 'exact' })
+      .from('exams')
+      .select('*, subject:subjects(name, class_id)', { count: 'exact' })
       .is('deleted_at', null)
+      .in('subject_id', subjectIds)
       .gte('date', startOfDay)
       .lte('date', endOfDay);
 
     if (search.trim()) query = query.ilike('title', `%${search}%`);
 
-    const { data, count, error } = await query
+    const { data: exams, count, error } = await query
       .order(sort, { ascending: order === 'asc' })
       .range(offset, offset + limit - 1);
 
     if (error) throw new InternalServerErrorException(error.message);
 
+    // 4. Cek mana saja yang sudah di-submit oleh student ini
+    const examIdsFound = (exams || []).map(e => e.id);
+    const { data: submissions } = await this.supabase
+      .from('exam_submissions')
+      .select('exam_id')
+      .eq('student_id', studentId)
+      .in('exam_id', examIdsFound);
+
+    const submittedExamIds = new Set((submissions || []).map(s => s.exam_id));
+
+    const finalData = (exams || []).map(e => ({
+      ...e,
+      is_submitted: submittedExamIds.has(e.id),
+    }));
+
     return {
-      data: data ?? [],
+      data: finalData,
       meta: {
         total: count ?? 0,
         page,

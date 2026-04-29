@@ -69,6 +69,9 @@ const StudentExamTable = ({ data, searchParams, setSearchParams }) => {
               Durasi (menit) {renderSortIndicator("duration")}
             </th>
             <th className="px-4 py-3 text-center border-b border-gray-200">
+              Status
+            </th>
+            <th className="px-4 py-3 text-center border-b border-gray-200">
               Aksi
             </th>
           </tr>
@@ -87,8 +90,8 @@ const StudentExamTable = ({ data, searchParams, setSearchParams }) => {
                 <td className="px-4 py-3 border-b border-gray-100 text-gray-800 font-medium">
                   {exam.title}
                 </td>
-                <td className="px-4 py-3 border-b border-gray-100 text-center">
-                  {exam.subject?.name || "-"}
+                <td className="px-4 py-3 border-b border-gray-100 text-center text-xs uppercase font-bold text-slate-500">
+                  {exam.subject?.name} <span className="text-emerald-600">({exam.subject?.class_id})</span>
                 </td>
                 <td className="px-4 py-3 border-b border-gray-100 text-center capitalize">
                   {exam.type}
@@ -100,14 +103,27 @@ const StudentExamTable = ({ data, searchParams, setSearchParams }) => {
                   {exam.duration}
                 </td>
                 <td className="px-4 py-3 border-b border-gray-100 text-center">
-                  <ActionMenu itemId={exam.id} menu="studentExam" />
+                  {exam.is_submitted ? (
+                    <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">
+                      Sudah Dikerjakan
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">
+                      Belum Dikerjakan
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3 border-b border-gray-100 text-center">
+                  {!exam.is_submitted && (
+                    <ActionMenu itemId={exam.id} menu="studentExam" />
+                  )}
                 </td>
               </tr>
             ))
           ) : (
             <tr>
               <td
-                colSpan="7"
+                colSpan="8"
                 className="px-4 py-6 text-center text-gray-500 italic"
               >
                 Tidak ada ujian hari ini.

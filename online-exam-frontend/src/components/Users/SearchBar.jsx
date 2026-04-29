@@ -11,19 +11,21 @@ const SearchBar = ({ placeholder = "Search by fields..." }) => {
 
   useEffect(() => {
     const debounce = setTimeout(() => {
-      const params = new URLSearchParams(searchParams);
-      if (input.trim()) {
-        params.set('search', input);
-        params.set('page', '1'); // reset ke halaman pertama
-      } else {
-        params.delete('search');
-        params.set('page', '1');
+      const currentSearch = searchParams.get('search') || '';
+      if (input !== currentSearch) {
+        const params = new URLSearchParams(searchParams);
+        if (input.trim()) {
+          params.set('search', input);
+        } else {
+          params.delete('search');
+        }
+        params.set('page', '1'); // reset ke halaman pertama saat search berubah
+        setSearchParams(params);
       }
-      setSearchParams(params);
     }, 500); // debounce 500ms
 
     return () => clearTimeout(debounce);
-  }, [input, searchParams, setSearchParams]);
+  }, [input, setSearchParams]);
 
   return (
     <input

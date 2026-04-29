@@ -13,6 +13,12 @@ const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+
+    if (!userid.trim() || !password.trim()) {
+      setError("Silakan masukkan ID Pengguna dan Kata Sandi!");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -135,7 +141,6 @@ const Login = () => {
                  <input type="checkbox" id="remember" className="h-4 w-4 text-emerald-500 border-slate-300 rounded focus:ring-emerald-500" />
                  <label htmlFor="remember" className="ml-2 text-sm font-bold text-slate-500">Ingat Saya</label>
               </div>
-              <span className="text-sm font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer transition-colors">Lupa Password?</span>
             </div>
 
             <button

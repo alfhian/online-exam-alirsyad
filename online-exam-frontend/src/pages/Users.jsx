@@ -1,6 +1,6 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, Fragment, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { FaUsers } from "react-icons/fa";
+import { FaUsers, FaFileImport, FaDownload } from "react-icons/fa";
 import Sidebar from "../components/Sidebar";
 import axios from "axios";
 import SearchBar from "../components/Users/SearchBar";
@@ -11,6 +11,7 @@ import ClassSelect from "../components/DropdownClass";
 import GenderSelect from "../components/DropdownGender";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
+import * as XLSX from "xlsx";
 import {
   Dialog,
   DialogPanel,
@@ -93,6 +94,11 @@ const Users = () => {
 
   // Submit user
   const handleSubmit = async () => {
+    if (!formData.userid || !formData.name || !formData.role) {
+      MySwal.fire("Gagal!", "Silakan lengkapi isian wajib (NIK/NIS, Nama, dan Role)!", "error");
+      return;
+    }
+
     try {
       await axios.post(`${import.meta.env.VITE_API_BASE_URL}/users`, formData, {
         headers: { Authorization: `Bearer ${token}` },
@@ -155,6 +161,31 @@ const Users = () => {
     } catch (err) {
       MySwal.fire("Gagal!", "Gagal memperbarui user.", "error");
     }
+  };
+
+  const handleDelete = async (id) => {
+    MySwal.fire({
+      title: "Apakah Anda yakin?",
+      text: "User akan dihapus (soft delete).",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Ya, hapus!",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "#d33",
+      reverseButtons: true,
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await api.post(`/users/${id}/delete`, {}, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          MySwal.fire("Berhasil!", "User berhasil dihapus.", "success");
+          fetchUsers();
+        } catch (err) {
+          MySwal.fire("Gagal!", "Gagal menghapus user.", "error");
+        }
+      }
+    });
   };
 
   const handleGenerateRandomToken = async () => {
@@ -282,6 +313,26 @@ const Users = () => {
                     className="mt-1 w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-emerald-400"
                   />
                 </div>
+
+                {/* Password Info */}
+                <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
+                  <p className="text-xs text-amber-700 font-medium">
+                    * Password default adalah <strong>123456</strong> jika dikosongkan.
+                  </p>
+                </div>
+
+                {/* Custom Password */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Password Custom (Opsional)</label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    placeholder="Isi jika ingin password berbeda"
+                    className="mt-1 w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-emerald-400"
+                  />
+                </div>
               </div>
 
               <div className="mt-6 flex justify-end space-x-2">
@@ -338,6 +389,13 @@ const Users = () => {
                 <textarea
                   name="description"
                   value={formData.description}
+                  onChange={handleInputChange}
+                  className="mt-1 w-full border px-3 py-2 rounded-lg"
+                />
+                <input
+                  type="password"
+                  name="password"
+                  placeholder="Password baru (kosongkan jika tidak ingin mengubah)"
                   onChange={handleInputChange}
                   className="mt-1 w-full border px-3 py-2 rounded-lg"
                 />
@@ -438,6 +496,18 @@ const Users = () => {
                     className="mt-1 w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-emerald-400"
                   />
                 </div>
+
+                {/* Password / Token */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Password / Token Baru</label>
+                  <input
+                    type="password"
+                    name="password"
+                    placeholder="Kosongkan jika tidak ingin mengubah"
+                    onChange={handleInputChange}
+                    className="mt-1 w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-emerald-400"
+                  />
+                </div>
               </div>
 
               <div className="mt-6 flex justify-end space-x-2">
@@ -475,6 +545,122 @@ const Users = () => {
     </Transition>
   );
 
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const downloadTemplate = () => {
+    const templateData = [
+      {
+        userid: "123456",
+        name: "Contoh Siswa",
+        nisn: "0012345678",
+        gender: "L",
+        role: "SISWA",
+        class_id: "uuid-kelas-jika-ada",
+        class_name: "X-RPL-1",
+        password: "password123",
+        description: "Keterangan tambahan",
+      },
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    XLSX.writeFile(workbook, "template_registrasi_user.xlsx");
+  };
+
+  const handleImportExcel = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      MySwal.fire({
+        title: "Sedang mengimpor...",
+        didOpen: () => MySwal.showLoading(),
+        allowOutsideClick: false,
+      });
+
+      const res = await api.post("/users/bulk-upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      MySwal.fire("Berhasil!", res.data.message, "success");
+      setImportModalOpen(false);
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      MySwal.fire("Gagal!", err.response?.data?.message || "Gagal mengimpor data.", "error");
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const ImportModal = () => (
+    <Transition appear show={importModalOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-10" onClose={() => setImportModalOpen(false)}>
+        <TransitionChild as={Fragment}>
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
+        </TransitionChild>
+
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <DialogPanel className="w-full max-w-md transform rounded-2xl bg-white p-6 shadow-xl transition-all">
+              <DialogTitle className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                <FaFileImport className="text-emerald-600" />
+                Impor Data via Excel
+              </DialogTitle>
+              <div className="mt-4 space-y-4">
+                <p className="text-sm text-gray-600">
+                  Unggah file Excel (.xlsx) untuk mendaftarkan banyak user sekaligus.
+                  Pastikan format file sesuai dengan template.
+                </p>
+                
+                <button
+                  onClick={downloadTemplate}
+                  className="flex items-center gap-2 text-sm text-emerald-600 font-semibold hover:underline"
+                >
+                  <FaDownload /> Download Template Excel
+                </button>
+
+                <div className="mt-4 border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-emerald-400 transition-colors">
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls"
+                    onChange={handleImportExcel}
+                    className="hidden"
+                    ref={fileInputRef}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-lg font-medium hover:bg-emerald-100 transition-colors"
+                  >
+                    Pilih File Excel
+                  </button>
+                  <p className="text-xs text-gray-400 mt-2">Format: .xlsx atau .xls</p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setImportModalOpen(false)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                >
+                  Tutup
+                </button>
+              </div>
+            </DialogPanel>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
+  );
+
   return (
     <Sidebar>
       <div className="p-8 bg-gray-50 min-h-screen rounded-2xl shadow-inner font-poppins">
@@ -489,6 +675,12 @@ const Users = () => {
             </h3>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={() => setImportModalOpen(true)}
+              className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-lg font-medium shadow-sm transition-colors duration-200 flex items-center gap-2"
+            >
+              <FaFileImport /> Impor Excel
+            </button>
             <button
               onClick={() => {
                 resetForm();
@@ -531,6 +723,7 @@ const Users = () => {
                   setSearchParams={setSearchParams}
                   onEdit={handleEditUser}
                   onEditSiswa={handleEditSiswa}
+                  onDelete={handleDelete}
                 />
               </div>
 
@@ -559,6 +752,7 @@ const Users = () => {
       {AddUserModal()}
       {EditUserModal()}
       {EditSiswaModal()}
+      {ImportModal()}
 
       </div>
     </Sidebar>

@@ -62,7 +62,9 @@ const QuestionnaireTable = ({ data, onRefresh, searchParams, setSearchParams, on
                 >
                   <td className="px-4 py-3 text-center">{index + 1}</td>
                   <td className="px-4 py-3 text-center">{q.index}</td>
-                  <td className="px-4 py-3 text-gray-800 break-words">{q.question}</td>
+                  <td className="px-4 py-3 text-gray-800 break-words line-clamp-2">
+                    {q.question?.replace(/<[^>]*>/g, "") || "-"}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     <span
                       className={`px-2 py-1 text-xs rounded-full font-semibold ${

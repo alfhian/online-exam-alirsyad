@@ -10,6 +10,19 @@ export class SubjectService {
 
   async create(dto: CreateSubjectDto): Promise<Subject> {
     try {
+      // CHECK DUPLICATE
+      const { data: existing } = await this.supabase
+        .from('subjects')
+        .select('id')
+        .eq('name', dto.name)
+        .eq('class_id', dto.class_id)
+        .is('deleted_at', null)
+        .single();
+
+      if (existing) {
+        throw new InternalServerErrorException(`Mata pelajaran ${dto.name} untuk kelas tersebut sudah ada!`);
+      }
+
       const { data, error } = await this.supabase
         .from('subjects')
         .insert([{ ...dto }])
@@ -19,7 +32,20 @@ export class SubjectService {
       if (error) throw new InternalServerErrorException(error.message);
       return data!;
     } catch (err: any) {
-      throw new InternalServerErrorException(err.message);
+      if (err.status === 404) {
+        // This is fine, means no duplicate found by single()
+      } else {
+        throw new InternalServerErrorException(err.message);
+      }
+
+      // Re-try insert after 404 (no duplicate)
+      const { data, error } = await this.supabase
+        .from('subjects')
+        .insert([{ ...dto }])
+        .select()
+        .single();
+      if (error) throw new InternalServerErrorException(error.message);
+      return data!;
     }
   }
 
@@ -36,7 +62,7 @@ export class SubjectService {
     try {
       let query = this.supabase
         .from('subjects')
-        .select('*', { count: 'exact' })
+        .select('*, teacher:teacher_id(name)', { count: 'exact' })
         .is('deleted_at', null);
 
       if (search?.trim()) {
@@ -68,7 +94,7 @@ export class SubjectService {
     try {
       const { data, error } = await this.supabase
         .from('subjects')
-        .select('*')
+        .select('*, teacher:teacher_id(name)')
         .is('deleted_at', null)
         .order('class_id', { ascending: true })
         .order('name', { ascending: true });
@@ -103,6 +129,22 @@ export class SubjectService {
 
   async update(id: string, dto: UpdateSubjectDto & { updated_by?: string }): Promise<Subject> {
     try {
+      // CHECK DUPLICATE
+      if (dto.name && dto.class_id) {
+        const { data: existing } = await this.supabase
+          .from('subjects')
+          .select('id')
+          .eq('name', dto.name)
+          .eq('class_id', dto.class_id)
+          .is('deleted_at', null)
+          .neq('id', id)
+          .single();
+
+        if (existing) {
+          throw new InternalServerErrorException(`Mata pelajaran ${dto.name} untuk kelas tersebut sudah ada!`);
+        }
+      }
+
       const { data, error } = await this.supabase
         .from('subjects')
         .update({ ...dto, updated_at: new Date() })
@@ -113,7 +155,21 @@ export class SubjectService {
       if (error || !data) throw new NotFoundException(`Subject ${id} not found`);
       return data;
     } catch (err: any) {
-      throw new InternalServerErrorException(err.message);
+      if (err.status === 404) {
+        // This is fine, means no duplicate found
+      } else {
+        throw new InternalServerErrorException(err.message);
+      }
+
+      // Re-try update after 404 (no duplicate)
+      const { data, error } = await this.supabase
+        .from('subjects')
+        .update({ ...dto, updated_at: new Date() })
+        .eq('id', id)
+        .select()
+        .single();
+      if (error || !data) throw new NotFoundException(`Subject ${id} not found`);
+      return data;
     }
   }
 

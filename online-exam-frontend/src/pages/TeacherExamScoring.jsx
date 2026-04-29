@@ -8,6 +8,7 @@ import ScoringQuestionCard from "../components/Exams/ScoringQuestionCard";
 import formatDateOnly from "../utils/formatDateOnly";
 import { FaRegEdit } from "react-icons/fa";
 import api from "../api/axiosConfig";
+import RichTextRenderer from "../components/RichTextRenderer";
 
 const MySwal = withReactContent(Swal);
 
@@ -62,6 +63,13 @@ const TeacherExamScoring = () => {
   const handleSaveScore = async () => {
     try {
       const questions = submission.questions || [];
+      
+      // Validasi: Semua soal harus diberi nilai (true/false)
+      const unanswered = questions.filter(q => scoring[q.id] === null || scoring[q.id] === undefined);
+      if (unanswered.length > 0) {
+        MySwal.fire("Gagal!", `Masih ada ${unanswered.length} soal yang belum diberi nilai!`, "warning");
+        return;
+      }
 
       const totalMultiple = questions.filter(q => q.type === "multiple_choice").length;
       const totalEssay = questions.filter(q => q.type === "essay").length;

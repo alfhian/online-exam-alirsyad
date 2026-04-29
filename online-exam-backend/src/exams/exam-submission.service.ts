@@ -144,10 +144,55 @@ export class ExamSubmissionService {
     if (count && count > 0)
       throw new BadRequestException('Anda sudah mengirimkan jawaban untuk ujian ini.');
 
-    // Insert new submission
+    // 🔹 AUTO SCORING FOR MULTIPLE CHOICE
+    // 1. Ambil semua kunci jawaban untuk exam ini
+    const { data: questions, error: qError } = await this.supabase
+      .from('questionnaires')
+      .select('id, type, answer')
+      .eq('exam_id', exam_id)
+      .is('deleted_at', null);
+
+    if (qError) throw new InternalServerErrorException(qError.message);
+
+    let totalScore: number | null = null;
+    const scoredAnswers = answers.map((ans) => {
+      const question = (questions || []).find((q) => q.id === ans.question_id);
+      let isCorrect: boolean | null = null;
+
+      if (question && question.type === 'multiple_choice') {
+        // Bandingkan jawaban (case-insensitive trim)
+        isCorrect = String(ans.answer).trim().toLowerCase() === String(question.answer).trim().toLowerCase();
+      }
+      return { ...ans, is_correct: isCorrect };
+    });
+
+    // 2. Hitung skor jika ada soal pilihan ganda
+    const mcQuestions = (questions || []).filter(q => q.type === 'multiple_choice');
+    const essayQuestions = (questions || []).filter(q => q.type === 'essay');
+
+    if (mcQuestions.length > 0 && essayQuestions.length === 0) {
+      const correctCount = scoredAnswers.filter(a => {
+        const q = mcQuestions.find(mq => mq.id === a.question_id);
+        return q && a.is_correct === true;
+      }).length;
+      
+      totalScore = Math.round((correctCount / mcQuestions.length) * 100);
+    } else {
+      // Jika ada essay, biarkan totalScore null agar muncul sebagai "belum dinilai" bagi guru
+      totalScore = null;
+    }
+
+    // Insert new submission with scored answers and total score
     const { data, error } = await this.supabase
       .from('exam_submissions')
-      .insert({ exam_id, student_id, session_id, answers, created_by })
+      .insert({ 
+        exam_id, 
+        student_id, 
+        session_id, 
+        answers: scoredAnswers, 
+        score: totalScore,
+        created_by 
+      })
       .select('*')
       .single();
 

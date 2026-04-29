@@ -10,6 +10,8 @@ import {
   Query,
   UseGuards,
   Req,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { UsersService } from './users.service';
@@ -18,6 +20,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
 import * as bcrypt from 'bcryptjs';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('users')
 @UseGuards(AuthGuard('jwt'))
@@ -44,6 +47,20 @@ export class UsersController {
     }
 
     return normalized;
+  }
+
+  // ============================
+  // BULK UPLOAD
+  // ============================
+  @Post('bulk-upload')
+  @Roles(Role.ADMIN)
+  @UseInterceptors(FileInterceptor('file'))
+  async bulkUpload(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
+    if (!file) {
+      throw new BadRequestException('File Excel wajib diunggah.');
+    }
+    const createdBy = (req as any)?.user?.sub ?? null;
+    return this.usersService.bulkUploadUsers(file.buffer, createdBy);
   }
 
   // ============================
@@ -142,10 +159,18 @@ export class UsersController {
   ) {
     const updatedBy = (req as any)?.user?.sub ?? null;
 
-    return this.usersService.updateUser(id, {
-      ...body,
-      updated_by: updatedBy,
-    });
+    const updateData: Partial<User> = { ...body, updated_by: updatedBy };
+
+    if (body.password) {
+      const requestedPassword = this.normalizeDefaultPassword(body.password);
+      if (requestedPassword) {
+        updateData.password = bcrypt.hashSync(requestedPassword, 10);
+      } else {
+        delete updateData.password;
+      }
+    }
+
+    return this.usersService.updateUser(id, updateData);
   }
 
   // ============================
@@ -162,6 +187,16 @@ export class UsersController {
     const updatedBy = (req as any)?.user?.sub ?? null;
 
     return this.usersService.updateUserStatus(id, isActive, updatedAt, updatedBy);
+  }
+
+  // ============================
+  // DELETE USER
+  // ============================
+  @Post(':id/delete')
+  @Roles(Role.ADMIN)
+  async delete(@Param('id') id: string, @Req() req: Request) {
+    const deletedBy = (req as any)?.user?.sub ?? null;
+    return this.usersService.deleteUser(id, deletedBy);
   }
 
   // ============================

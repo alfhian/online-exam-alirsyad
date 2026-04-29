@@ -1,5 +1,6 @@
 import React from "react";
 import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/solid";
+import RichTextRenderer from "../RichTextRenderer";
 
 const ScoringQuestionCard = ({ question, index, isCorrect, onSetScore }) => {
   const { id, text, type, options, correctAnswer, studentAnswer } = question;
@@ -66,10 +67,13 @@ const ScoringQuestionCard = ({ question, index, isCorrect, onSetScore }) => {
   return (
     <div className="border rounded-lg p-4 mb-4 bg-white shadow-sm">
       {/* 🔹 Header & Tombol Penilaian */}
-      <div className="flex justify-between items-center mb-3">
-        <h4 className="font-semibold text-gray-800">
-          {index + 1}. {text || "Soal tidak ditemukan"}
-        </h4>
+      <div className="flex justify-between items-start mb-3 gap-4">
+        <div className="font-semibold text-gray-800 flex gap-2 flex-1">
+          <span>{index + 1}.</span>
+          <div className="flex-1">
+            <RichTextRenderer content={text} />
+          </div>
+        </div>
         <div className="flex gap-2">
           <button
             onClick={() => onSetScore(id, true)}

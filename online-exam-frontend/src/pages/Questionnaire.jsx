@@ -7,6 +7,8 @@ import QuestionnaireTable from "../components/Questionnaire/QuestionnaireTable";
 import Pagination from "../components/Paginate";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 import {
   Dialog,
   DialogPanel,
@@ -17,6 +19,21 @@ import {
 import { FaQuestionCircle } from "react-icons/fa";
 
 const MySwal = withReactContent(Swal);
+
+// Quill modules configuration
+const quillModules = {
+  toolbar: [
+    [{ header: [1, 2, 3, false] }],
+    ["bold", "italic", "underline", "strike"],
+    [{ list: "ordered" }, { list: "bullet" }],
+    ["link", "image", "video"],
+    ["clean"],
+    ["code-block"],
+    [{ color: [] }, { background: [] }],
+    [{ align: [] }],
+    // KaTeX math button is usually handled via link or a custom button
+  ],
+};
 
 const initialFormData = {
   question: "",
@@ -108,6 +125,22 @@ const Questionnaire = () => {
   }, [search, sort, order, page]);
 
   const handleSubmit = async () => {
+    if (!formData.question) {
+      MySwal.fire("Gagal!", "Pertanyaan tidak boleh kosong!", "error");
+      return;
+    }
+
+    if (formData.type === "multiple_choice") {
+      if (formData.options.length < 2) {
+        MySwal.fire("Gagal!", "Soal pilihan ganda harus memiliki minimal 2 opsi jawaban!", "error");
+        return;
+      }
+      if (formData.options.some(opt => !opt.value.trim())) {
+        MySwal.fire("Gagal!", "Semua opsi jawaban harus diisi!", "error");
+        return;
+      }
+    }
+
     try {
       await axios.post(
         `${import.meta.env.VITE_API_BASE_URL}/exams/${examId}/questionnaires`,
@@ -124,10 +157,11 @@ const Questionnaire = () => {
         showConfirmButton: false,
       });
       fetchQuestionnaires();
-    } catch {
+    } catch (err) {
+      const msg = err.response?.data?.message || "Tidak dapat menambah pertanyaan.";
       MySwal.fire({
         title: "Gagal!",
-        text: `Tidak dapat menambah pertanyaan.`,
+        text: msg,
         icon: "error",
       });
     }
@@ -164,6 +198,22 @@ const Questionnaire = () => {
   };
 
   const handleUpdate = async () => {
+    if (!formData.question) {
+      MySwal.fire("Gagal!", "Pertanyaan tidak boleh kosong!", "error");
+      return;
+    }
+
+    if (formData.type === "multiple_choice") {
+      if (formData.options.length < 2) {
+        MySwal.fire("Gagal!", "Soal pilihan ganda harus memiliki minimal 2 opsi jawaban!", "error");
+        return;
+      }
+      if (formData.options.some(opt => !opt.value.trim())) {
+        MySwal.fire("Gagal!", "Semua opsi jawaban harus diisi!", "error");
+        return;
+      }
+    }
+
     try {
       await axios.put(
         `${import.meta.env.VITE_API_BASE_URL}/exams/${examId}/questionnaires/${selectedId}`,
@@ -180,10 +230,11 @@ const Questionnaire = () => {
         showConfirmButton: false,
       });
       fetchQuestionnaires();
-    } catch {
+    } catch (err) {
+      const msg = err.response?.data?.message || "Tidak dapat memperbarui pertanyaan.";
       MySwal.fire({
         title: "Gagal!",
-        text: "Tidak dapat memperbarui pertanyaan.",
+        text: msg,
         icon: "error",
       });
     }
@@ -295,7 +346,7 @@ const Questionnaire = () => {
                   leaveFrom="opacity-100 scale-100"
                   leaveTo="opacity-0 scale-95"
                 >
-                  <DialogPanel className="w-full max-w-md transform rounded-2xl bg-white/90 backdrop-blur-md p-6 text-left align-middle shadow-2xl border border-gray-200 transition-all">
+                  <DialogPanel className="w-full max-w-2xl transform rounded-2xl bg-white/90 backdrop-blur-md p-6 text-left align-middle shadow-2xl border border-gray-200 transition-all">
                     <DialogTitle
                       as="h3"
                       className="text-xl font-semibold text-gray-800 mb-4"
@@ -307,15 +358,15 @@ const Questionnaire = () => {
 
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
                           Pertanyaan
                         </label>
-                        <input
-                          type="text"
-                          name="question"
+                        <ReactQuill
+                          theme="snow"
                           value={formData.question}
-                          onChange={handleInputChange}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                          onChange={(content) => setFormData(prev => ({ ...prev, question: content }))}
+                          modules={quillModules}
+                          className="bg-white rounded-lg"
                         />
                       </div>
 

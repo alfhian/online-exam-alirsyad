@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FaSignOutAlt, FaUserCircle, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaSignOutAlt, FaUserCircle, FaChevronLeft, FaChevronRight, FaBars, FaTimes } from "react-icons/fa";
 import { jwtDecode } from "jwt-decode";
 import { useNavigate, useLocation } from "react-router-dom";
 import Menus from "./Menu";
@@ -8,17 +8,36 @@ import Swal from "sweetalert2";
 
 const Sidebar = ({ children }) => {
   const [isOpen, setIsOpen] = useState(true);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    // Close mobile sidebar on route change
+    setIsMobileOpen(false);
+    
+    // Auto collapse on small screens
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsOpen(false);
+      } else {
+        setIsOpen(true);
+      }
+    };
+    
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [location.pathname]);
 
   const token = localStorage.getItem("token");
   const decoded = token ? jwtDecode(token) : {};
   const { role, name, userid } = decoded;
 
   const toggleSidebar = () => setIsOpen(!isOpen);
+  const toggleMobileSidebar = () => setIsMobileOpen(!isMobileOpen);
 
   const handleLogout = async () => {
     const confirm = await Swal.fire({
@@ -70,12 +89,22 @@ const Sidebar = ({ children }) => {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 font-poppins">
+    <div className="flex h-screen bg-slate-50 font-poppins relative">
+      {/* Mobile Backdrop */}
+      {isMobileOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 lg:hidden"
+          onClick={() => setIsMobileOpen(false)}
+        ></div>
+      )}
+
       {/* Sidebar */}
       <aside
         className={`${
           isOpen ? "w-72" : "w-24"
-        } bg-slate-900 text-slate-300 transition-all duration-500 ease-in-out shadow-2xl flex flex-col z-20 overflow-hidden relative border-r border-slate-800`}
+        } ${
+          isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        } bg-slate-900 text-slate-300 transition-all duration-500 ease-in-out shadow-2xl flex flex-col z-40 overflow-hidden fixed lg:relative h-full border-r border-slate-800`}
       >
         {/* Decorative Background */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent pointer-events-none"></div>
@@ -87,12 +116,15 @@ const Sidebar = ({ children }) => {
               <div className="h-10 w-10 bg-gradient-to-tr from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
                 <span className="text-white font-bold text-xl">A</span>
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-white tracking-tight leading-tight">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-bold text-white tracking-tight leading-tight truncate">
                   Al Irsyad
                 </h3>
-                <span className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold">Exam Center</span>
+                <p className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold">Exam Center</p>
               </div>
+              <button onClick={() => setIsMobileOpen(false)} className="lg:hidden text-slate-400 hover:text-white">
+                <FaTimes />
+              </button>
             </div>
           ) : (
             <div className="h-10 w-10 bg-gradient-to-tr from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
@@ -105,7 +137,7 @@ const Sidebar = ({ children }) => {
         {isOpen && (
           <div className="mx-4 mb-6 p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50 backdrop-blur-sm">
             <div className="flex items-center gap-3">
-              <div className="relative">
+              <div className="relative flex-shrink-0">
                 <FaUserCircle className="text-4xl text-slate-400" />
                 <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
               </div>
@@ -119,14 +151,14 @@ const Sidebar = ({ children }) => {
 
         {/* Menu List */}
         <nav className="flex-1 overflow-y-auto px-4 space-y-2 scrollbar-hide">
-          <Menus role={role} isOpen={isOpen} currentPath={location.pathname} />
+          <Menus role={role} isOpen={isOpen || isMobileOpen} currentPath={location.pathname} />
         </nav>
 
         {/* Footer Actions */}
         <div className="p-4 mt-auto border-t border-slate-800 space-y-2">
           <button
             onClick={toggleSidebar}
-            className="flex items-center justify-center w-full h-11 rounded-xl bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white transition-all duration-300"
+            className="hidden lg:flex items-center justify-center w-full h-11 rounded-xl bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white transition-all duration-300"
             title={isOpen ? "Collapse Sidebar" : "Expand Sidebar"}
           >
             {isOpen ? <FaChevronLeft /> : <FaChevronRight />}
@@ -137,7 +169,7 @@ const Sidebar = ({ children }) => {
             className="flex items-center gap-3 w-full h-11 px-4 rounded-xl text-sm font-semibold text-rose-400 hover:text-white hover:bg-rose-500 transition-all duration-300 group"
           >
             <FaSignOutAlt className="text-lg transition-transform duration-300 group-hover:-translate-x-0.5" />
-            {isOpen && <span>Logout</span>}
+            {(isOpen || isMobileOpen) && <span>Logout</span>}
           </button>
         </div>
       </aside>
@@ -149,9 +181,15 @@ const Sidebar = ({ children }) => {
         }`}
       >
         {/* Content Header Area */}
-        <div className="sticky top-0 z-10 w-full bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4 flex justify-between items-center shadow-sm">
-           <div>
-             <h2 className="text-sm font-medium text-slate-500 capitalize">
+        <div className="sticky top-0 z-10 w-full bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 sm:px-8 py-4 flex justify-between items-center shadow-sm">
+           <div className="flex items-center gap-4">
+             <button 
+               onClick={toggleMobileSidebar}
+               className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+             >
+               <FaBars className="text-xl" />
+             </button>
+             <h2 className="text-sm font-medium text-slate-500 capitalize truncate">
                {location.pathname.split('/').filter(Boolean).pop()?.replace('-', ' ') || 'Dashboard'}
              </h2>
            </div>
@@ -166,7 +204,7 @@ const Sidebar = ({ children }) => {
            </div>
         </div>
 
-        <div className="p-8 max-w-[1600px] mx-auto">
+        <div className="p-4 sm:p-8 max-w-[1600px] mx-auto">
           {children}
         </div>
       </main>

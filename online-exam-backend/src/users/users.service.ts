@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { User } from './entities/user.entity';
+import * as XLSX from 'xlsx';
 
 @Injectable()
 export class UsersService {
@@ -11,6 +12,88 @@ export class UsersService {
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
   constructor(private readonly supabase: SupabaseClient) {}
+
+  // BULK UPLOAD USERS
+  async bulkUploadUsers(fileBuffer: Buffer, createdBy: string) {
+    const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const data: any[] = XLSX.utils.sheet_to_json(sheet);
+
+    if (data.length === 0) {
+      throw new BadRequestException('File Excel kosong atau format tidak valid.');
+    }
+
+    const defaultPassword = process.env.DEFAULT_NEW_USER_PASSWORD || '123456';
+    const usersToInsert: any[] = [];
+    const errors: string[] = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      const {
+        userid,
+        name,
+        nisn,
+        gender,
+        role,
+        class_id,
+        class_name,
+        password,
+        description,
+      } = row;
+
+      if (!userid || !name || !role) {
+        errors.push(`Baris ${i + 2}: NIS/NIK, Nama, dan Role wajib diisi.`);
+        continue;
+      }
+
+      // Check duplicate in current batch
+      if (usersToInsert.some((u) => u.userid === String(userid))) {
+        errors.push(`Baris ${i + 2}: Duplikat NIS/NIK ${userid} dalam file.`);
+        continue;
+      }
+
+      const passwordSource = password || defaultPassword;
+      const hashedPassword = bcrypt.hashSync(String(passwordSource), 10);
+
+      usersToInsert.push({
+        id: randomUUID(),
+        userid: String(userid),
+        name: String(name),
+        nisn: nisn ? String(nisn) : '',
+        gender: gender ? String(gender).toUpperCase() : 'L',
+        role: String(role).toUpperCase(),
+        class_id: class_id || null,
+        class_name: class_name ? String(class_name) : '',
+        password: hashedPassword,
+        description: description ? String(description) : '',
+        created_by: createdBy,
+        is_active: true,
+      });
+    }
+
+    if (errors.length > 0 && usersToInsert.length === 0) {
+      throw new BadRequestException(errors.join('\n'));
+    }
+
+    // Insert to Supabase in batches of 50
+    const batchSize = 50;
+    for (let i = 0; i < usersToInsert.length; i += batchSize) {
+      const batch = usersToInsert.slice(i, i + batchSize);
+      const { error } = await this.supabase.from('users').insert(batch);
+      if (error) {
+        this.logger.error(`Error inserting batch ${i}: ${error.message}`);
+        throw new InternalServerErrorException(`Gagal mengimpor batch ${i}: ${error.message}`);
+      }
+    }
+
+    return {
+      success: true,
+      count: usersToInsert.length,
+      errors: errors,
+      message: `Berhasil mengimpor ${usersToInsert.length} user.${errors.length > 0 ? ` Terjadi ${errors.length} kesalahan.` : ''}`,
+    };
+  }
 
   // CREATE USER
   async createUser(user: Partial<User>): Promise<User> {
@@ -28,6 +111,14 @@ export class UsersService {
 
     if (!user.created_by) {
       user.created_by = user.id;
+    }
+
+    // CHECK DUPLICATE NIK/NIS (USERID)
+    if (user.userid) {
+      const existingUser = await this.getUserByNisNik(user.userid);
+      if (existingUser) {
+        throw new BadRequestException(`User dengan NIK/NIS ${user.userid} sudah terdaftar!`);
+      }
     }
 
     const { data, error } = await this.supabase
@@ -56,7 +147,7 @@ export class UsersService {
       .is('deleted_at', null);
 
     if (search.trim()) {
-      query = query.ilike('name', `%${search}%`);
+      query = query.or(`name.ilike.%${search}%,userid.ilike.%${search}%,role.ilike.%${search}%`);
     }
 
     const { data, error, count } = await query
@@ -152,41 +243,60 @@ export class UsersService {
     return data;
   }
 
+  // DELETE USER (SOFT DELETE)
+  async deleteUser(id: string, deletedBy: string) {
+    const { data, error } = await this.supabase
+      .from('users')
+      .update({
+        deleted_at: new Date(),
+        deleted_by: deletedBy,
+        is_active: false,
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) throw new InternalServerErrorException(error.message);
+    return data;
+  }
+
   // RANDOM STRING
   private generateRandomString(length = 8): string {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
   }
 
-  // RESET ALL SISWA PASSWORD
+  // RESET ALL SISWA PASSWORD (UNIQUE FOR EACH)
   async generateSamePasswordForAllSiswa() {
-    const rawPassword = `SISWA-${this.generateRandomString(8)}`;
-    const hashed = bcrypt.hashSync(rawPassword, 10);
-
-    // UPDATE PASSWORDS
-    const { error: updateError } = await this.supabase
+    // FETCH ALL ACTIVE SISWA
+    const { data: siswaList, error: fetchError } = await this.supabase
       .from('users')
-      .update({ password: hashed })
+      .select('id')
       .eq('role', 'SISWA')
       .is('deleted_at', null);
 
-    if (updateError) throw new InternalServerErrorException(updateError.message);
+    if (fetchError) throw new InternalServerErrorException(fetchError.message);
+    if (!siswaList || siswaList.length === 0) {
+      throw new NotFoundException('No SISWA users found to update');
+    }
 
-    // COUNT SISWA
-    const { count, error: countError } = await this.supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true })
-      .eq('role', 'SISWA')
-      .is('deleted_at', null);
+    // UPDATE EACH SISWA WITH A UNIQUE PASSWORD
+    const updates = siswaList.map((siswa) => {
+      const rawPassword = `SISWA-${this.generateRandomString(8)}`;
+      const hashed = bcrypt.hashSync(rawPassword, 10);
+      return this.supabase
+        .from('users')
+        .update({ password: hashed })
+        .eq('id', siswa.id);
+    });
 
-    if (countError) throw new InternalServerErrorException(countError.message);
-    if (!count) throw new NotFoundException('No SISWA users found to update');
+    await Promise.all(updates);
 
-    this.logger.log(`Updated ${count} SISWA passwords to SAME new password`);
+    this.logger.log(`Updated ${siswaList.length} SISWA with unique passwords`);
 
     return {
-      updated: count,
-      password: rawPassword,
+      updated: siswaList.length,
+      message: 'Password seluruh siswa berhasil diperbarui dengan token unik.',
     };
   }
 
@@ -230,7 +340,7 @@ export class UsersService {
       .is('deleted_at', null);
 
     if (search.trim()) {
-      query = query.ilike('name', `%${search}%`);
+      query = query.or(`name.ilike.%${search}%,userid.ilike.%${search}%,role.ilike.%${search}%`);
     }
 
     if (classId) {

@@ -5,6 +5,8 @@ import PropTypes from "prop-types";
 const SubjectTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit }) => {
   const sort = searchParams.get("sort") || "name";
   const order = searchParams.get("order") || "asc";
+  const page = Number(searchParams.get("page")) || 1;
+  const pageSize = 10;
 
   const handleSort = (key) => {
     const currentSort = searchParams.get("sort");
@@ -47,6 +49,9 @@ const SubjectTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit }
             >
               Kelas {renderSortIndicator("class_id")}
             </th>
+            <th className="px-4 py-3 text-center">
+              Guru Pengampu
+            </th>
             <th
               className="px-4 py-3 text-center cursor-pointer hover:text-emerald-700"
               onClick={() => handleSort("description")}
@@ -64,12 +69,17 @@ const SubjectTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit }
                 key={subject.id}
                 className="hover:bg-emerald-50 transition-colors duration-200"
               >
-                <td className="px-4 py-3 border-t text-center">{index + 1}</td>
-                <td className="px-4 py-3 border-t">{subject.name}</td>
                 <td className="px-4 py-3 border-t text-center">
-                  Kelas {subject.class_id}
+                  {(page - 1) * pageSize + index + 1}
                 </td>
-                <td className="px-4 py-3 border-t text-gray-600">
+                <td className="px-4 py-3 border-t font-medium">{subject.name}</td>
+                <td className="px-4 py-3 border-t text-center uppercase">
+                  {subject.class_id}
+                </td>
+                <td className="px-4 py-3 border-t text-center">
+                  {subject.teacher?.name || "-"}
+                </td>
+                <td className="px-4 py-3 border-t text-gray-600 text-xs">
                   {subject.description || "-"}
                 </td>
                 <td className="px-4 py-3 border-t text-center">
@@ -80,7 +90,7 @@ const SubjectTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit }
           ) : (
             <tr>
               <td
-                colSpan="5"
+                colSpan="6"
                 className="px-4 py-6 text-center text-gray-500 italic"
               >
                 Tidak ada mata pelajaran ditemukan

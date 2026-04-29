@@ -37,10 +37,10 @@ export class TeacherExamsService {
         if (s.score === null || s.score === undefined) unscoredMap[s.exam_id]++;
       });
 
-      // Ambil daftar ujian
+      // Ambil daftar ujian + subject info
       let query = this.supabase
         .from('exams')
-        .select('*', { count: 'exact' })
+        .select('*, subject:subjects(name, class_id)', { count: 'exact' })
         .in('id', examIds);
 
       if (search) {
