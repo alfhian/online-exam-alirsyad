@@ -139,38 +139,88 @@ const Reports = () => {
           </div>
 
           {loading ? (
-            <p className="text-slate-500">Loading report...</p>
+            <p className="text-slate-500 text-xs italic">Loading report...</p>
           ) : (
-            <div className="table-shell">
-              <table className="w-full text-sm text-slate-700">
-                <thead>
-                  <tr>
-                    {normalizedRows[0]
-                      ? Object.keys(normalizedRows[0]).map((key) => (
-                          <th key={key} className="px-3 py-2 text-left capitalize">
-                            {key.replaceAll("_", " ")}
-                          </th>
-                        ))
-                      : <th className="px-3 py-2 text-left">Data</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {normalizedRows.length ? (
-                    normalizedRows.map((row, idx) => (
-                      <tr key={idx}>
-                        {Object.values(row).map((val, i) => (
-                          <td key={`${idx}-${i}`} className="px-3 py-2">{String(val ?? "-")}</td>
-                        ))}
-                      </tr>
-                    ))
-                  ) : (
+            <>
+              {/* 🔹 Desktop Table View */}
+              <div className="hidden lg:block table-shell overflow-x-auto">
+                <table className="w-full text-sm text-slate-700">
+                  <thead className="bg-emerald-50 text-emerald-700 uppercase text-[10px] font-bold tracking-wider">
                     <tr>
-                      <td className="px-3 py-6 text-center text-slate-500">Tidak ada data report untuk filter ini.</td>
+                      {normalizedRows[0]
+                        ? Object.keys(normalizedRows[0]).map((key) => (
+                            <th key={key} className="px-4 py-3 text-left border-b">
+                              {key.replaceAll("_", " ")}
+                            </th>
+                          ))
+                        : <th className="px-4 py-3 text-left border-b">Data</th>}
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="text-xs">
+                    {normalizedRows.length ? (
+                      normalizedRows.map((row, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50 transition-colors border-b last:border-none">
+                          {Object.values(row).map((val, i) => (
+                            <td key={`${idx}-${i}`} className="px-4 py-3">{String(val ?? "-")}</td>
+                          ))}
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td className="px-4 py-12 text-center text-slate-400 italic">Tidak ada data report untuk filter ini.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 🔹 Mobile Card View */}
+              <div className="lg:hidden space-y-4">
+                {normalizedRows.length ? (
+                  normalizedRows.map((row, idx) => (
+                    <div 
+                      key={idx}
+                      className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 space-y-4 relative overflow-hidden group hover:shadow-md transition-all"
+                    >
+                      <div className="flex gap-3 items-start relative z-10">
+                        <div className="h-8 w-8 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center font-bold text-xs shrink-0">
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-slate-800 leading-tight truncate">
+                            {row.judul || row.ujian || row.mapel || "Laporan"}
+                          </h4>
+                          <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-semibold">
+                            {row.tipe || row.kelas || "-"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-y-4 gap-x-2 pt-4 border-t border-slate-50 relative z-10">
+                        {Object.entries(row).map(([key, val], i) => (
+                          key !== "judul" && key !== "ujian" && key !== "mapel" && key !== "tipe" && key !== "kelas" && (
+                            <div key={i}>
+                              <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1">{key.replaceAll("_", " ")}</p>
+                              <p className="text-xs font-semibold text-slate-700 truncate">{String(val ?? "-")}</p>
+                            </div>
+                          )
+                        ))}
+                        {(row.kelas || row.mapel) && !row.judul && !row.ujian && (
+                           <div>
+                             <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1">Info</p>
+                             <p className="text-xs font-semibold text-slate-700">{row.kelas || row.mapel}</p>
+                           </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="bg-white rounded-2xl p-12 text-center text-slate-400 italic border border-slate-100">
+                    Tidak ada data laporan.
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>

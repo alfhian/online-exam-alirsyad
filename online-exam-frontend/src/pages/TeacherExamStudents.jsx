@@ -45,7 +45,7 @@ const TeacherExamStudents = () => {
       setSubmissions(list);
       setMeta(metaInfo);
 
-      if (list.length > 0 && list[0].exam?.title) {
+      if (list.length > 0 && list[0]?.exam?.title) {
         setExamTitle(list[0].exam.title);
       }
     } catch (err) {

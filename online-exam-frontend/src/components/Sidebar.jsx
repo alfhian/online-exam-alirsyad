@@ -101,74 +101,74 @@ const Sidebar = ({ children }) => {
       {/* Sidebar */}
       <aside
         className={`${
-          isOpen ? "w-64" : "w-20"
+          isOpen ? "w-60" : "w-16"
         } ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         } bg-slate-900 text-slate-300 transition-all duration-300 ease-in-out shadow-2xl flex flex-col z-40 overflow-hidden fixed lg:relative h-full border-r border-slate-800`}
       >
         {/* Decorative Background */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-emerald-500/10 via-transparent to-transparent pointer-events-none"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-emerald-500/5 via-transparent to-transparent pointer-events-none"></div>
 
         {/* Header */}
-        <div className="flex items-center justify-between p-5 mb-2">
+        <div className="flex items-center justify-between p-4 mb-2">
           {isOpen || isMobileOpen ? (
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 bg-gradient-to-tr from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                <span className="text-white font-bold text-lg">A</span>
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 bg-gradient-to-tr from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <span className="text-white font-bold text-base">A</span>
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-bold text-white tracking-tight leading-tight truncate">
+                <h3 className="text-sm font-bold text-white tracking-tight leading-tight truncate">
                   Al Irsyad
                 </h3>
-                <p className="text-[9px] uppercase tracking-widest text-emerald-400 font-bold">Exam Center</p>
+                <p className="text-[8px] uppercase tracking-widest text-emerald-400 font-bold">Exam Center</p>
               </div>
-              <button onClick={() => setIsMobileOpen(false)} className="lg:hidden text-slate-400 hover:text-white p-2">
-                <FaTimes />
+              <button onClick={() => setIsMobileOpen(false)} className="lg:hidden text-slate-400 hover:text-white p-1.5">
+                <FaTimes className="text-xs" />
               </button>
             </div>
           ) : (
-            <div className="h-9 w-9 bg-gradient-to-tr from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
-              <span className="text-white font-bold text-lg">A</span>
+            <div className="h-8 w-8 bg-gradient-to-tr from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
+              <span className="text-white font-bold text-base">A</span>
             </div>
           )}
         </div>
 
         {/* User Profile Summary */}
         {(isOpen || isMobileOpen) && (
-          <div className="mx-4 mb-6 p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 backdrop-blur-sm">
-            <div className="flex items-center gap-3">
+          <div className="mx-3 mb-5 p-2.5 rounded-lg bg-slate-800/40 border border-slate-700/50 backdrop-blur-sm">
+            <div className="flex items-center gap-2.5">
               <div className="relative flex-shrink-0">
-                <FaUserCircle className="text-3xl text-slate-400" />
-                <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
+                <FaUserCircle className="text-2xl text-slate-400" />
+                <div className="absolute -bottom-0.5 -right-0.5 h-2 w-2 bg-emerald-500 border border-slate-900 rounded-full"></div>
               </div>
               <div className="overflow-hidden">
-                <p className="text-xs font-semibold text-white truncate">{name || 'User'}</p>
-                <p className="text-[9px] text-slate-400 font-medium truncate uppercase tracking-wider">{role} • {userid}</p>
+                <p className="text-[11px] font-semibold text-white truncate leading-tight">{name || 'User'}</p>
+                <p className="text-[8px] text-slate-400 font-medium truncate uppercase tracking-tighter">{role} • {userid}</p>
               </div>
             </div>
           </div>
         )}
 
         {/* Menu List */}
-        <nav className="flex-1 overflow-y-auto px-3 space-y-1 scrollbar-hide">
+        <nav className="flex-1 overflow-y-auto px-2 space-y-0.5 scrollbar-hide">
           <Menus role={role} isOpen={isOpen || isMobileOpen} currentPath={location.pathname} />
         </nav>
 
         {/* Footer Actions */}
-        <div className="p-3 mt-auto border-t border-slate-800 space-y-1">
+        <div className="p-2 mt-auto border-t border-slate-800 space-y-0.5">
           <button
             onClick={toggleSidebar}
-            className="hidden lg:flex items-center justify-center w-full h-10 rounded-lg bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white transition-all duration-300"
+            className="hidden lg:flex items-center justify-center w-full h-9 rounded-lg bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white transition-all duration-300"
             title={isOpen ? "Collapse Sidebar" : "Expand Sidebar"}
           >
-            {isOpen ? <FaChevronLeft className="text-xs" /> : <FaChevronRight className="text-xs" />}
+            {isOpen ? <FaChevronLeft className="text-[10px]" /> : <FaChevronRight className="text-[10px]" />}
           </button>
           
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 w-full h-10 px-3 rounded-lg text-xs font-semibold text-rose-400 hover:text-white hover:bg-rose-500 transition-all duration-300 group"
+            className="flex items-center gap-2.5 w-full h-9 px-3 rounded-lg text-[11px] font-semibold text-rose-400 hover:text-white hover:bg-rose-500 transition-all duration-300 group"
           >
-            <FaSignOutAlt className="text-base transition-transform duration-300 group-hover:-translate-x-0.5" />
+            <FaSignOutAlt className="text-sm transition-transform duration-300 group-hover:-translate-x-0.5" />
             {(isOpen || isMobileOpen) && <span>Logout</span>}
           </button>
         </div>
