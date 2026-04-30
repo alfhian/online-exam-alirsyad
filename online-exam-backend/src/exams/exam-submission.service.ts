@@ -38,7 +38,7 @@ export class ExamSubmissionService {
       .eq('student_id', studentId);
 
     if (search?.trim()) {
-      query = query.ilike('exam.title', `%${search}%`);
+      query = query.or(`exam.title.ilike.%${search}%,exam.type.ilike.%${search}%`);
     }
 
     const { data, count, error } = await query

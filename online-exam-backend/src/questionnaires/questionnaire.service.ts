@@ -40,7 +40,7 @@ export class QuestionnaireService {
       .is('deleted_at', null);
 
     if (search) {
-      query = query.ilike('question', `%${search}%`).or(`type.ilike.%${search}%`);
+      query = query.or(`question.ilike.%${search}%,type.ilike.%${search}%,answer.ilike.%${search}%`);
     }
 
     query = query.order(sort, { ascending: order === 'asc' }).range(from, to);

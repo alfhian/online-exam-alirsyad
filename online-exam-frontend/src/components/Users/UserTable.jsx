@@ -71,86 +71,81 @@ const UserTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit, onE
       {/* 🔹 Desktop Table View */}
       <div className="hidden lg:block table-shell overflow-x-auto">
         <table className="w-full text-sm text-slate-700">
-          <thead className="bg-emerald-50 text-emerald-700 uppercase text-xs font-semibold tracking-wider">
+          <thead className="bg-emerald-50 text-emerald-700 uppercase text-[10px] font-bold tracking-wider">
             <tr>
-              <th className="px-4 py-3 text-center border-b min-w-[80px]">No</th>
+              <th className="px-4 py-2 text-center border-b min-w-[60px]">No</th>
               <th
-                className="px-4 py-3 text-center border-b min-w-[120px] cursor-pointer select-none hover:text-emerald-700 transition-colors"
+                className="px-4 py-2 text-center border-b min-w-[120px] cursor-pointer select-none hover:text-emerald-700 transition-colors"
                 onClick={() => handleSort("userid")}
               >
                 User ID {renderSortIndicator("userid")}
               </th>
               <th
-                className="px-4 py-3 text-left border-b min-w-[200px] cursor-pointer select-none hover:text-emerald-700 transition-colors"
+                className="px-4 py-2 text-left border-b min-w-[200px] cursor-pointer select-none hover:text-emerald-700 transition-colors"
                 onClick={() => handleSort("name")}
               >
                 Nama {renderSortIndicator("name")}
               </th>
               <th
-                className="px-4 py-3 text-center border-b min-w-[100px] cursor-pointer select-none hover:text-emerald-700 transition-colors"
+                className="px-4 py-2 text-center border-b min-w-[100px] cursor-pointer select-none hover:text-emerald-700 transition-colors"
                 onClick={() => handleSort("class_name")}
               >
                 Kelas {renderSortIndicator("class_name")}
               </th>
               <th
-                className="px-4 py-3 text-center border-b min-w-[100px] cursor-pointer select-none hover:text-emerald-700 transition-colors"
+                className="px-4 py-2 text-center border-b min-w-[100px] cursor-pointer select-none hover:text-emerald-700 transition-colors"
                 onClick={() => handleSort("role")}
               >
                 Role {renderSortIndicator("role")}
               </th>
               <th
-                className="px-4 py-3 text-center border-b min-w-[100px] cursor-pointer select-none hover:text-emerald-700 transition-colors"
+                className="px-4 py-2 text-center border-b min-w-[100px] cursor-pointer select-none hover:text-emerald-700 transition-colors"
                 onClick={() => handleSort("is_active")}
               >
                 Status {renderSortIndicator("is_active")}
               </th>
-              <th
-                className="px-4 py-3 text-center border-b min-w-[140px] cursor-pointer select-none hover:text-emerald-700 transition-colors"
-                onClick={() => handleSort("created_at")}
-              >
-                Dibuat {renderSortIndicator("created_at")}
-              </th>
-              <th className="px-4 py-3 text-center border-b min-w-[120px]">Aksi</th>
+              <th className="px-4 py-2 text-center border-b min-w-[120px]">Aksi</th>
             </tr>
           </thead>
 
-          <tbody>
+          <tbody className="text-xs">
             {Array.isArray(data) && data.length > 0 ? (
               data.map((user, index) => (
                 <tr
                   key={user.id}
-                  className="hover:bg-emerald-50 transition-all duration-150 border-b last:border-none"
+                  className="hover:bg-emerald-50/50 transition-all duration-150 border-b last:border-none"
                 >
-                  <td className="px-4 py-3 text-center">{(page - 1) * pageSize + index + 1}</td>
-                  <td className="px-4 py-3 text-center font-medium text-slate-500">{user.userid}</td>
-                  <td className="px-4 py-3 font-semibold text-slate-800 italic">
+                  <td className="px-4 py-2.5 text-center text-slate-500">{(page - 1) * pageSize + index + 1}</td>
+                  <td className="px-4 py-2.5 text-center text-slate-500">{user.userid}</td>
+                  <td className="px-4 py-2.5 font-medium text-slate-800">
                     {user.name}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-2.5 text-center">
                     {user.class_name || <span className="text-slate-300">-</span>}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-2.5 text-center">
                     <span
-                      className={`px-3 py-1 text-[10px] rounded-full font-bold uppercase tracking-wider ${
+                      className={`px-2 py-0.5 text-[9px] rounded font-semibold uppercase tracking-wider ${
                         user.role === "ADMIN"
-                          ? "bg-rose-100 text-rose-700 border border-rose-200"
+                          ? "bg-rose-50 text-rose-600 border border-rose-100"
                           : user.role === "GURU"
-                          ? "bg-sky-100 text-sky-700 border border-sky-200"
-                          : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                          ? "bg-indigo-50 text-indigo-600 border border-indigo-100"
+                          : "bg-emerald-50 text-emerald-600 border border-emerald-100"
                       }`}
                     >
                       {user.role}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center">
-                    <ToggleStatusButton
-                      label={user.name}
-                      isActive={user.is_active}
-                      onConfirm={(newStatus) => onToggle(user.id, newStatus)}
-                    />
+                  <td className="px-4 py-2.5 text-center">
+                    <div className="flex justify-center scale-90">
+                      <ToggleStatusButton
+                        label={user.name}
+                        isActive={user.is_active}
+                        onConfirm={(newStatus) => onToggle(user.id, newStatus)}
+                      />
+                    </div>
                   </td>
-                  <td className="px-4 py-3 text-center text-slate-500 text-xs">{formatDate(user.created_at)}</td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-2.5 text-center">
                     <ActionMenu
                       itemId={user.id}
                       onEdit={onEdit}
@@ -164,8 +159,8 @@ const UserTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit, onE
               ))
             ) : (
               <tr>
-                <td colSpan="8" className="px-4 py-12 text-center text-slate-400 bg-slate-50/50 italic">
-                  Tidak ada data pengguna yang ditemukan.
+                <td colSpan="7" className="px-4 py-12 text-center text-slate-400 bg-slate-50/30 italic">
+                  Tidak ada data pengguna.
                 </td>
               </tr>
             )}
@@ -179,61 +174,66 @@ const UserTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit, onE
           data.map((user, index) => (
             <div 
               key={user.id}
-              className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4 hover:shadow-md transition-shadow relative overflow-hidden group"
+              className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4 relative overflow-hidden group hover:shadow-md transition-all"
             >
-              {/* Card Decoration */}
-              <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full opacity-[0.03] transition-transform duration-500 group-hover:scale-150 ${
-                user.role === 'ADMIN' ? 'bg-rose-500' : user.role === 'GURU' ? 'bg-sky-500' : 'bg-emerald-500'
-              }`}></div>
-
               <div className="flex justify-between items-start relative z-10">
-                <div className="flex items-center gap-3">
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm ${
-                    user.role === 'ADMIN' ? 'bg-rose-50 text-rose-600' : user.role === 'GURU' ? 'bg-sky-50 text-sky-600' : 'bg-emerald-50 text-emerald-600'
+                <div className="flex gap-3">
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
+                    user.role === 'ADMIN' ? 'bg-rose-50 text-rose-600' : user.role === 'GURU' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'
                   }`}>
                     {(page - 1) * pageSize + index + 1}
                   </div>
                   <div>
-                    <h4 className="font-bold text-slate-800 leading-tight">{user.name}</h4>
-                    <p className="text-xs text-slate-400 mt-0.5">ID: {user.userid}</p>
+                    <h4 className="font-bold text-slate-800 leading-tight pr-8">{user.name}</h4>
+                    <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-semibold">
+                      {user.userid}
+                    </p>
                   </div>
                 </div>
-                <ActionMenu
-                  itemId={user.id}
-                  onEdit={onEdit}
-                  menu="user"
-                  type={user.role}
-                  onEditSiswa={onEditSiswa}
-                  onDelete={onDelete}
-                />
+                <div className="absolute top-0 right-0">
+                   <ActionMenu
+                    itemId={user.id}
+                    onEdit={onEdit}
+                    onEditSiswa={onEditSiswa}
+                    onDelete={onDelete}
+                    menu="user"
+                    type={user.role}
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 py-3 border-y border-slate-50 relative z-10">
+              <div className="grid grid-cols-2 gap-y-4 gap-x-2 pt-4 border-t border-slate-50 relative z-10">
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Role</p>
-                  <span className={`px-2 py-0.5 text-[9px] rounded-md font-bold uppercase tracking-tighter ${
-                    user.role === "ADMIN" ? "text-rose-600 bg-rose-50" : user.role === "GURU" ? "text-sky-600 bg-sky-50" : "text-emerald-600 bg-emerald-50"
+                  <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1">Role</p>
+                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider ${
+                    user.role === "ADMIN" ? "bg-rose-50 text-rose-600" :
+                    user.role === "GURU" ? "bg-indigo-50 text-indigo-600" :
+                    "bg-emerald-50 text-emerald-600"
                   }`}>
                     {user.role}
                   </span>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Kelas</p>
-                  <p className="text-xs font-semibold text-slate-700">{user.class_name || '-'}</p>
+                  <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1">Kelas</p>
+                  <p className="text-xs font-semibold text-slate-700 uppercase">{user.class_name || '-'}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Bergabung</p>
-                  <p className="text-xs text-slate-500 font-medium">{formatDate(user.created_at)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Status</p>
-                  <div className="scale-90 origin-left">
+                  <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1">Status</p>
+                  <div className="scale-75 origin-left">
                     <ToggleStatusButton
                       label={user.name}
                       isActive={user.is_active}
                       onConfirm={(newStatus) => onToggle(user.id, newStatus)}
                     />
                   </div>
+                </div>
+                <div className="flex items-end justify-end">
+                   <button 
+                    onClick={() => user.role === 'SISWA' ? onEditSiswa(user.id) : onEdit(user.id)}
+                    className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    Edit Profil →
+                  </button>
                 </div>
               </div>
             </div>

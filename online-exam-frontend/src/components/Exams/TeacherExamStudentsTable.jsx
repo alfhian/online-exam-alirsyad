@@ -40,7 +40,7 @@ const TeacherExamStudentsTable = ({ data, searchParams, setSearchParams }) => {
       {/* 🔹 Desktop Table View */}
       <div className="hidden lg:block table-shell overflow-x-auto">
         <table className="w-full text-sm text-slate-700">
-          <thead className="bg-emerald-50 text-emerald-700 uppercase text-xs font-semibold tracking-wider">
+          <thead className="bg-emerald-50 text-emerald-700 uppercase text-[10px] font-bold tracking-wider">
             <tr>
               <th className="px-4 py-3 text-center border-b">No</th>
               <th
@@ -65,18 +65,18 @@ const TeacherExamStudentsTable = ({ data, searchParams, setSearchParams }) => {
               <th className="px-4 py-3 text-center border-b">Aksi</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="text-xs">
             {Array.isArray(data) && data.length > 0 ? (
               data.map((submission, index) => (
                 <tr
                   key={submission.id}
                   className="hover:bg-emerald-50/50 transition-colors duration-200 border-b last:border-none"
                 >
-                  <td className="px-4 py-4 text-center">{index + 1}</td>
-                  <td className="px-4 py-4 text-center font-medium text-slate-500">
+                  <td className="px-4 py-4 text-center">{(page - 1) * 10 + index + 1}</td>
+                  <td className="px-4 py-4 text-center text-slate-500 font-medium">
                     {submission.student?.userid || "-"}
                   </td>
-                  <td className="px-4 py-4 font-semibold text-slate-800 italic">
+                  <td className="px-4 py-4 font-semibold text-slate-800">
                     {submission.student?.name || "-"}
                   </td>
                   <td className="px-4 py-4 text-center text-slate-500">
@@ -85,17 +85,17 @@ const TeacherExamStudentsTable = ({ data, searchParams, setSearchParams }) => {
                   <td className="px-4 py-4 text-center">
                     {submission.score != null ? (
                       (() => {
-                        let color = "bg-green-100 text-green-700 border-green-200";
-                        if (submission.score < 50) color = "bg-red-100 text-red-700 border-red-200";
-                        else if (submission.score < 75) color = "bg-amber-100 text-amber-700 border-amber-200";
+                        let color = "bg-green-50 text-green-700 border-green-100";
+                        if (submission.score < 50) color = "bg-rose-50 text-rose-700 border-rose-100";
+                        else if (submission.score < 75) color = "bg-amber-50 text-amber-700 border-amber-100";
                         return (
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold border ${color}`}>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${color}`}>
                             {submission.score}
                           </span>
                         );
                       })()
                     ) : (
-                      <span className="px-3 py-1 rounded-full text-xs font-bold border bg-slate-100 text-slate-400 border-slate-200 italic">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold border bg-slate-50 text-slate-400 border-slate-100 italic">
                         Belum Dinilai
                       </span>
                     )}
@@ -134,11 +134,11 @@ const TeacherExamStudentsTable = ({ data, searchParams, setSearchParams }) => {
               <div className="flex justify-between items-start relative z-10">
                 <div className="flex gap-3">
                   <div className="h-10 w-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold text-sm shrink-0">
-                    {index + 1}
+                    {(page - 1) * 10 + index + 1}
                   </div>
                   <div>
                     <h4 className="font-bold text-slate-800 leading-tight pr-8">{submission.student?.name || "Tanpa Nama"}</h4>
-                    <p className="text-xs text-slate-400 mt-1">NIS: {submission.student?.userid || "-"}</p>
+                    <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-semibold">NIS: {submission.student?.userid || "-"}</p>
                   </div>
                 </div>
                 <div className="absolute top-0 right-0">
@@ -153,7 +153,7 @@ const TeacherExamStudentsTable = ({ data, searchParams, setSearchParams }) => {
               <div className="grid grid-cols-2 gap-y-4 gap-x-2 pt-4 border-t border-slate-50 relative z-10">
                 <div>
                   <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1">Status</p>
-                  <p className="text-xs font-semibold text-emerald-600">Selesai</p>
+                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">Selesai</span>
                 </div>
                 <div>
                   <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1">Nilai Akhir</p>

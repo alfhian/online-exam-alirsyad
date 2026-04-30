@@ -53,7 +53,9 @@ export class ExamService {
       .select('*', { count: 'exact' })
       .is('deleted_at', null);
 
-    if (search.trim()) query = query.ilike('title', `%${search}%`);
+    if (search.trim()) {
+      query = query.or(`title.ilike.%${search}%,type.ilike.%${search}%`);
+    }
 
     const { data, count, error } = await query
       .order(sort, { ascending: order === 'asc' })
@@ -257,7 +259,9 @@ export class ExamService {
       .gte('date', startOfDay)
       .lte('date', endOfDay);
 
-    if (search.trim()) query = query.ilike('title', `%${search}%`);
+    if (search.trim()) {
+      query = query.or(`title.ilike.%${search}%,type.ilike.%${search}%`);
+    }
 
     const { data: exams, count, error } = await query
       .order(sort, { ascending: order === 'asc' })

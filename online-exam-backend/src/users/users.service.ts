@@ -147,7 +147,7 @@ export class UsersService {
       .is('deleted_at', null);
 
     if (search.trim()) {
-      query = query.or(`name.ilike.%${search}%,userid.ilike.%${search}%,role.ilike.%${search}%`);
+      query = query.or(`name.ilike.%${search}%,userid.ilike.%${search}%,role.ilike.%${search}%,class_name.ilike.%${search}%`);
     }
 
     const { data, error, count } = await query
@@ -340,7 +340,7 @@ export class UsersService {
       .is('deleted_at', null);
 
     if (search.trim()) {
-      query = query.or(`name.ilike.%${search}%,userid.ilike.%${search}%,role.ilike.%${search}%`);
+      query = query.or(`name.ilike.%${search}%,userid.ilike.%${search}%,role.ilike.%${search}%,class_name.ilike.%${search}%`);
     }
 
     if (classId) {

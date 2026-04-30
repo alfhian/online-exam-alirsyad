@@ -44,7 +44,7 @@ export class TeacherExamsService {
         .in('id', examIds);
 
       if (search) {
-        query = query.ilike('title', `%${search}%`);
+        query = query.or(`title.ilike.%${search}%,type.ilike.%${search}%`);
       }
 
       query = query.order(sort, { ascending: order === 'asc' }).range(from, to);
@@ -110,10 +110,12 @@ export class TeacherExamsService {
         student: students.find(s => s.id === sub.student_id) || null,
       }));
 
-      // 4️⃣ Filter berdasarkan nama student jika ada search
+      // 4️⃣ Filter berdasarkan nama student / userid jika ada search
       if (search.trim()) {
+        const keyword = search.toLowerCase();
         combined = combined.filter(c =>
-          c.student?.name.toLowerCase().includes(search.toLowerCase()),
+          c.student?.name.toLowerCase().includes(keyword) ||
+          (c.student?.userid && String(c.student.userid).toLowerCase().includes(keyword)),
         );
       }
 

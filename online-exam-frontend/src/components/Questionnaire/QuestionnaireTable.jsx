@@ -24,8 +24,9 @@ const QuestionnaireTable = ({ data, onRefresh, searchParams, setSearchParams, on
   };
 
   return (
-    <div className="mt-6 bg-white rounded-2xl shadow-md border border-gray-100">
-      <div className="overflow-x-auto">
+    <div className="font-poppins">
+      {/* 🔹 Desktop Table View */}
+      <div className="hidden lg:block mt-6 bg-white rounded-2xl shadow-md border border-gray-100 overflow-x-auto">
         <table className="min-w-full text-sm text-slate-700 table-fixed">
           <thead className="bg-gradient-to-r from-emerald-50 to-teal-100 text-gray-700">
             <tr className="text-sm font-semibold">
@@ -92,7 +93,7 @@ const QuestionnaireTable = ({ data, onRefresh, searchParams, setSearchParams, on
             ) : (
               <tr>
                 <td
-                  colSpan="6"
+                  colSpan="7"
                   className="px-4 py-6 text-center text-gray-500 bg-gray-50 italic"
                 >
                   Tidak ada pertanyaan ditemukan.
@@ -101,6 +102,60 @@ const QuestionnaireTable = ({ data, onRefresh, searchParams, setSearchParams, on
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* 🔹 Mobile Card View */}
+      <div className="lg:hidden space-y-4 mt-6">
+        {Array.isArray(data) && data.length > 0 ? (
+          data.map((q, index) => (
+            <div 
+              key={q.id}
+              className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4 relative overflow-hidden group hover:shadow-md transition-all"
+            >
+              <div className="flex justify-between items-start relative z-10">
+                <div className="flex gap-3">
+                  <div className="h-10 w-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold text-sm shrink-0">
+                    {q.index || index + 1}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-800 leading-tight pr-8 line-clamp-3">
+                      {q.question?.replace(/<[^>]*>/g, "") || "Tanpa Pertanyaan"}
+                    </h4>
+                    <div className="flex items-center gap-2 mt-2">
+                       <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider ${
+                         q.type === "multiple_choice" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
+                       }`}>
+                         {q.type.replace("_", " ")}
+                       </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="absolute top-0 right-0">
+                  <ActionMenu itemId={q.id} onEdit={onEdit} menu="questionnaire" />
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-50 relative z-10 space-y-3">
+                {q.type === "multiple_choice" && (
+                  <div>
+                    <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1">Opsi</p>
+                    <p className="text-xs text-slate-600 leading-relaxed italic">
+                      {Array.isArray(q.options) ? q.options.map((opt) => opt.value).join(", ") : "-"}
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1">Jawaban Benar</p>
+                  <p className="text-xs font-bold text-emerald-600">{q.answer || "-"}</p>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="bg-white rounded-2xl p-12 text-center text-slate-400 italic border border-slate-100">
+            Tidak ada data pertanyaan.
+          </div>
+        )}
       </div>
     </div>
   );

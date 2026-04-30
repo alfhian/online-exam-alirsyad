@@ -61,16 +61,16 @@ export default function ActionMenu({
   const handleViewDetail = () => navigate(`/exam-submissions/${itemId}`);
   const handleScoring = () => navigate(`/teacher-exam/submission/${itemId}`);
 
-  const ActionItem = ({ onClick, icon: Icon, label, variant = "default" }) => (
+  const ActionItem = ({ onClick, icon: Icon, label }) => (
     <MenuItem>
       {({ active }) => (
         <button
           onClick={onClick}
           className={`${
             active ? "bg-slate-50 text-emerald-600" : "text-slate-600"
-          } group flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-colors`}
+          } group flex w-full items-center gap-2.5 px-3 py-1.5 text-[11px] font-medium transition-colors`}
         >
-          <Icon className={`h-4 w-4 transition-transform ${active ? 'scale-110' : ''}`} />
+          <Icon className={`h-3.5 w-3.5 transition-transform ${active ? 'scale-110' : ''}`} />
           {label}
         </button>
       )}
@@ -82,10 +82,10 @@ export default function ActionMenu({
       <Menu as="div" className="relative">
         <div>
           <MenuButton
-            className="h-9 w-9 flex items-center justify-center hover:bg-slate-100 rounded-xl transition-all focus:outline-none border border-transparent hover:border-slate-200"
+            className="h-7 w-7 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-all focus:outline-none border border-transparent hover:border-slate-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <EllipsisVerticalIcon className="h-5 w-5 text-slate-500" />
+            <EllipsisVerticalIcon className="h-4 w-4 text-slate-400" />
           </MenuButton>
         </div>
 
@@ -98,7 +98,7 @@ export default function ActionMenu({
           leaveTo="transform opacity-0 scale-95"
         >
           <MenuItems
-            className="fixed z-50 mt-2 w-48 origin-top-right right-0 rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200 focus:outline-none overflow-hidden"
+            className="fixed z-50 mt-1 w-36 origin-top-right right-0 rounded-xl bg-white shadow-xl ring-1 ring-slate-200 focus:outline-none overflow-hidden"
           >
             <div className="py-1">
               {/* 🔧 Menu umum untuk Edit */}

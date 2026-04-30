@@ -67,7 +67,7 @@ export class SubjectService {
 
       if (search?.trim()) {
         const keyword = search.trim().toLowerCase();
-        query = query.or(`name.ilike.%${keyword}%,description.ilike.%${keyword}%`);
+        query = query.or(`name.ilike.%${keyword}%,description.ilike.%${keyword}%,class_id.ilike.%${keyword}%`);
       }
 
       query = query.order(sort, { ascending: order === 'asc' }).range(from, to);
