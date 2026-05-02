@@ -78,6 +78,71 @@ button:focus-visible {
   font-size: 0.875rem;
 }
 
+.module-shell {
+  min-height: 100vh;
+  border-radius: 1rem;
+  background: #f8fafc;
+  padding: 1.25rem;
+  box-shadow: inset 0 1px 6px rgba(15, 23, 42, 0.06);
+}
+
+.module-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.module-title-wrap {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.module-icon {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.875rem;
+  background: #d1fae5;
+  color: #059669;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+
+.module-title {
+  color: #1f2937;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.module-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.module-action-btn {
+  display: inline-flex;
+  min-height: 2.375rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+
 .app-content :where(h1, h2, h3) {
   letter-spacing: 0;
 }
@@ -110,6 +175,49 @@ button:focus-visible {
 @media (max-width: 640px) {
   .app-content {
     font-size: 0.8125rem;
+  }
+
+  .module-shell {
+    padding: 0.9rem;
+    border-radius: 0.875rem;
+  }
+
+  .module-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.875rem;
+    margin-bottom: 1rem;
+  }
+
+  .module-title-wrap {
+    gap: 0.65rem;
+  }
+
+  .module-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.75rem;
+  }
+
+  .module-title {
+    font-size: 1.0625rem;
+    line-height: 1.3;
+  }
+
+  .module-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    justify-content: stretch;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .module-action-btn {
+    width: 100%;
+    min-height: 2.25rem;
+    padding: 0.5rem 0.65rem;
+    font-size: 0.75rem;
+    white-space: normal;
   }
 
   .app-content :where(.text-4xl, .text-3xl) {

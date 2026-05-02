@@ -60,15 +60,15 @@ const StudentExams = () => {
 
   return (
     <Sidebar>
-      <div className="p-6 min-h-screen bg-gray-50 rounded-2xl shadow-sm max-w-screen-xl mx-auto transition-all duration-300">
+      <div className="module-shell max-w-screen-xl mx-auto transition-all duration-300">
         {/* === Header Section === */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="bg-emerald-100 p-3 rounded-2xl">
-              <FaBookOpen className="text-emerald-600 text-3xl" />
+        <div className="module-header">
+          <div className="module-title-wrap">
+            <div className="module-icon">
+              <FaBookOpen className="text-lg" />
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-800">
+              <h3 className="module-title">
                 Ujian Hari Ini
               </h3>
               <p className="text-gray-600 text-sm pt-1">

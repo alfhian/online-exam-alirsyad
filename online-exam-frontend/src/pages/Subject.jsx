@@ -152,14 +152,14 @@ const Subjects = () => {
 
   return (
     <Sidebar>
-      <div className="p-8 bg-gray-50 min-h-screen rounded-2xl shadow-inner font-poppins">
+      <div className="module-shell font-poppins">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl shadow-sm">
-              <FaBookOpen className="text-2xl" />
+        <div className="module-header">
+          <div className="module-title-wrap">
+            <div className="module-icon">
+              <FaBookOpen className="text-lg" />
             </div>
-            <h3 className="text-2xl font-semibold text-gray-800">
+            <h3 className="module-title">
               Daftar Mata Pelajaran
             </h3>
           </div>
@@ -168,7 +168,7 @@ const Subjects = () => {
               resetForm();
               setShowModal(true);
             }}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg font-medium shadow-sm transition-colors duration-200"
+            className="module-action-btn bg-emerald-600 hover:bg-emerald-700 text-white transition-colors duration-200"
           >
             + Tambah Mata Pelajaran
           </button>

@@ -108,13 +108,13 @@ const Reports = () => {
 
   return (
     <Sidebar>
-      <div className="space-y-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h1 className="text-2xl font-bold text-slate-800">Laporan Akademik</h1>
+      <div className="module-shell space-y-5">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+          <h1 className="module-title">Laporan Akademik</h1>
           <p className="mt-2 text-slate-600">Filter data, lihat laporan, lalu export CSV/Excel.</p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
             <input type="date" value={filters.from} onChange={(e) => setFilters((p) => ({ ...p, from: e.target.value }))} />
             <input type="date" value={filters.to} onChange={(e) => setFilters((p) => ({ ...p, to: e.target.value }))} />
@@ -127,14 +127,16 @@ const Reports = () => {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <button className={`px-4 py-2 ${activeTab === "exam" ? "btn-primary text-white" : "bg-slate-100 text-slate-700"}`} onClick={() => setActiveTab("exam")}>Report Ujian</button>
-            <button className={`px-4 py-2 ${activeTab === "submission" ? "btn-primary text-white" : "bg-slate-100 text-slate-700"}`} onClick={() => setActiveTab("submission")}>Report Submission</button>
-            <button className={`px-4 py-2 ${activeTab === "subject" ? "btn-primary text-white" : "bg-slate-100 text-slate-700"}`} onClick={() => setActiveTab("subject")}>Report Mapel</button>
-            <div className="ml-auto flex gap-2">
-              <button className="bg-slate-100 px-4 py-2 text-slate-700" onClick={exportCsv}>Export CSV</button>
-              <button className="bg-emerald-600 px-4 py-2 text-white" onClick={exportExcel}>Export Excel</button>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+          <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:flex">
+              <button className={`module-action-btn ${activeTab === "exam" ? "btn-primary text-white" : "bg-slate-100 text-slate-700"}`} onClick={() => setActiveTab("exam")}>Report Ujian</button>
+              <button className={`module-action-btn ${activeTab === "submission" ? "btn-primary text-white" : "bg-slate-100 text-slate-700"}`} onClick={() => setActiveTab("submission")}>Report Submission</button>
+              <button className={`module-action-btn ${activeTab === "subject" ? "btn-primary text-white" : "bg-slate-100 text-slate-700"}`} onClick={() => setActiveTab("subject")}>Report Mapel</button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:flex">
+              <button className="module-action-btn bg-slate-100 text-slate-700" onClick={exportCsv}>Export CSV</button>
+              <button className="module-action-btn bg-emerald-600 text-white" onClick={exportExcel}>Export Excel</button>
             </div>
           </div>
 

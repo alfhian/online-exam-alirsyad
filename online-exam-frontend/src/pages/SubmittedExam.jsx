@@ -53,13 +53,15 @@ const SubmittedExams = () => {
 
   return (
     <Sidebar>
-      <div className="p-8 bg-gray-50 min-h-screen rounded-2xl shadow-inner">
+      <div className="module-shell">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl shadow-sm">
-            <FaClipboardList className="text-3xl" />
+        <div className="module-header justify-start">
+          <div className="module-title-wrap">
+            <div className="module-icon">
+              <FaClipboardList className="text-lg" />
+            </div>
+            <h3 className="module-title">Hasil Ujian</h3>
           </div>
-          <h3 className="text-2xl font-bold text-gray-800">Hasil Ujian</h3>
         </div>
 
         {/* === Table Section === */}

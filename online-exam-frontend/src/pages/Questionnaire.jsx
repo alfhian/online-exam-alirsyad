@@ -242,14 +242,14 @@ const Questionnaire = () => {
 
   return (
     <Sidebar>
-      <div className="p-8 bg-gray-50 min-h-screen rounded-2xl shadow-inner">
+      <div className="module-shell">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl shadow-sm">
-              <FaQuestionCircle className="text-3xl" />
+        <div className="module-header">
+          <div className="module-title-wrap">
+            <div className="module-icon">
+              <FaQuestionCircle className="text-lg" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-800">
+            <h3 className="module-title">
               Daftar Pertanyaan Ujian
             </h3>
           </div>
@@ -258,7 +258,7 @@ const Questionnaire = () => {
               resetForm();
               setShowModal(true);
             }}
-            className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white font-semibold py-2 px-4 rounded-xl shadow-md transition-all"
+            className="module-action-btn bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white transition-all"
           >
             + Tambah Pertanyaan
           </button>
