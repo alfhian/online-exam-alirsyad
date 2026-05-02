@@ -101,7 +101,7 @@ const Sidebar = ({ children }) => {
       {/* Sidebar */}
       <aside
         className={`${
-          isOpen ? "w-60" : "w-16"
+          isMobileOpen ? "w-64" : isOpen ? "w-56" : "w-16"
         } ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         } bg-slate-900 text-slate-300 transition-all duration-300 ease-in-out shadow-2xl flex flex-col z-40 overflow-hidden fixed lg:relative h-full border-r border-slate-800`}
@@ -151,7 +151,12 @@ const Sidebar = ({ children }) => {
 
         {/* Menu List */}
         <nav className="flex-1 overflow-y-auto px-2 space-y-0.5 scrollbar-hide">
-          <Menus role={role} isOpen={isOpen || isMobileOpen} currentPath={location.pathname} />
+          <Menus
+            role={role}
+            isOpen={isOpen || isMobileOpen}
+            currentPath={location.pathname}
+            onNavigate={() => setIsMobileOpen(false)}
+          />
         </nav>
 
         {/* Footer Actions */}
@@ -176,7 +181,7 @@ const Sidebar = ({ children }) => {
 
       {/* Main Content */}
       <main
-        className={`flex-1 overflow-y-auto bg-slate-50 transition-all duration-500 relative ${
+        className={`app-shell flex-1 overflow-y-auto bg-slate-50 transition-all duration-500 relative ${
           mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
         }`}
       >
@@ -204,7 +209,7 @@ const Sidebar = ({ children }) => {
            </div>
         </div>
 
-        <div className="p-4 sm:p-6 max-w-[1600px] mx-auto">
+        <div className="app-content p-3 sm:p-5 max-w-[1600px] mx-auto">
           {children}
         </div>
       </main>

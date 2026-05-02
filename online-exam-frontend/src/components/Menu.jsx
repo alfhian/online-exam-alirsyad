@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { roleMenus, menus } from "../constants/menus";
 import * as FaIcons from "react-icons/fa";
 
-const Menus = ({ role, isOpen }) => {
+const Menus = ({ role, isOpen, onNavigate }) => {
   const allowedMenuNames = roleMenus[role] || [];
   const navigate = useNavigate();
   const location = useLocation();
@@ -22,7 +22,10 @@ const Menus = ({ role, isOpen }) => {
         return (
           <li
             key={index}
-            onClick={() => navigate(menu.path)}
+            onClick={() => {
+              navigate(menu.path);
+              onNavigate?.();
+            }}
             className={`group relative flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-all duration-200 rounded-lg
               ${
                 isActive

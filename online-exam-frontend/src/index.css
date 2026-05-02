@@ -32,19 +32,19 @@ body {
 }
 
 h1 {
-  font-size: 2.25rem;
+  font-size: 1.75rem;
   line-height: 1.2;
   font-weight: 600;
 }
 
 h2 {
-  font-size: 1.875rem;
+  font-size: 1.5rem;
   line-height: 1.2;
   font-weight: 600;
 }
 
 h3 {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   line-height: 1.3;
   font-weight: 600;
 }
@@ -72,6 +72,60 @@ button:focus-visible {
 
 .font-poppins {
   font-family: "Inter", "Poppins", sans-serif;
+}
+
+.app-content {
+  font-size: 0.875rem;
+}
+
+.app-content :where(h1, h2, h3) {
+  letter-spacing: 0;
+}
+
+.app-content :where(.text-4xl) {
+  font-size: 1.75rem !important;
+  line-height: 2.125rem !important;
+}
+
+.app-content :where(.text-3xl) {
+  font-size: 1.5rem !important;
+  line-height: 1.875rem !important;
+}
+
+.app-content :where(.text-2xl) {
+  font-size: 1.25rem !important;
+  line-height: 1.625rem !important;
+}
+
+.app-content :where(.text-xl) {
+  font-size: 1.0625rem !important;
+  line-height: 1.5rem !important;
+}
+
+.app-content :where(.text-lg) {
+  font-size: 0.9375rem !important;
+  line-height: 1.375rem !important;
+}
+
+@media (max-width: 640px) {
+  .app-content {
+    font-size: 0.8125rem;
+  }
+
+  .app-content :where(.text-4xl, .text-3xl) {
+    font-size: 1.375rem !important;
+    line-height: 1.75rem !important;
+  }
+
+  .app-content :where(.text-2xl) {
+    font-size: 1.125rem !important;
+    line-height: 1.5rem !important;
+  }
+
+  .app-content :where(.text-xl, .text-lg) {
+    font-size: 0.9375rem !important;
+    line-height: 1.375rem !important;
+  }
 }
 
 .table-shell {
