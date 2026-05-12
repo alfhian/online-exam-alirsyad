@@ -13,8 +13,10 @@ export class Subject {
   deleted_by?: string;
 
   class_id: string;
+  teacher_id?: string;
 
   // Relasi manual (opsional)
   classes?: any;
+  teacher?: any;
   exams?: any[];
 }

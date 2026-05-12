@@ -7,8 +7,6 @@ import QuestionnaireTable from "../components/Questionnaire/QuestionnaireTable";
 import Pagination from "../components/Paginate";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
 import {
   Dialog,
   DialogPanel,
@@ -19,21 +17,6 @@ import {
 import { FaQuestionCircle } from "react-icons/fa";
 
 const MySwal = withReactContent(Swal);
-
-// Quill modules configuration
-const quillModules = {
-  toolbar: [
-    [{ header: [1, 2, 3, false] }],
-    ["bold", "italic", "underline", "strike"],
-    [{ list: "ordered" }, { list: "bullet" }],
-    ["link", "image", "video"],
-    ["clean"],
-    ["code-block"],
-    [{ color: [] }, { background: [] }],
-    [{ align: [] }],
-    // KaTeX math button is usually handled via link or a custom button
-  ],
-};
 
 const initialFormData = {
   question: "",
@@ -361,12 +344,12 @@ const Questionnaire = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Pertanyaan
                         </label>
-                        <ReactQuill
-                          theme="snow"
+                        <textarea
                           value={formData.question}
-                          onChange={(content) => setFormData(prev => ({ ...prev, question: content }))}
-                          modules={quillModules}
-                          className="bg-white rounded-lg"
+                          onChange={(e) => setFormData(prev => ({ ...prev, question: e.target.value }))}
+                          rows={5}
+                          placeholder="Tulis pertanyaan di sini"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
                         />
                       </div>
 

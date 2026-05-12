@@ -35,6 +35,7 @@ export class SubjectController {
       return await this.subjectService.create({
         name: body.name,
         class_id: body.class_id,
+        teacher_id: body.teacher_id,
         description: body.description,
         created_by: createdBy,
       });

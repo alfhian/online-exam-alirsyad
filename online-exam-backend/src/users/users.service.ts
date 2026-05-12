@@ -189,10 +189,11 @@ export class UsersService {
       .is('deleted_at', null)
       .single();
 
-    console.log(error);
-    
-
-    if (error) return null;
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      this.logger.error(`Failed to fetch user by userid ${userid}: ${error.message}`);
+      throw new InternalServerErrorException(`Gagal membaca data pengguna: ${error.message}`);
+    }
     return data;
   }
 
