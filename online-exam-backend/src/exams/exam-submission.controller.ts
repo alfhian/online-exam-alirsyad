@@ -21,8 +21,8 @@ export class ExamSubmissionController {
   @Get('me')
   async mySubmission(
     @Query('search') search = '',
-    @Query('sort') sort = 'title',
-    @Query('order') order: 'asc' | 'desc' = 'asc',
+    @Query('sort') sort = 'created_at',
+    @Query('order') order: 'asc' | 'desc' = 'desc',
     @Query('page') page = '1',
     @Query('limit') limit = '10',
     @Req() req: any,

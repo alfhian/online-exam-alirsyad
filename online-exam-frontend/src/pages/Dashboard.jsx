@@ -171,22 +171,27 @@ const StudentSubmissions = ({ submissions }) => (
   <ChartContainer title="Hasil Ujian Terbaru" icon={FaAward}>
     <div className="space-y-4">
       {submissions.length > 0 ? (
-        submissions.slice(0, 5).map((sub) => (
-          <div key={sub.id} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 transition-all hover:bg-white hover:shadow-lg hover:border-emerald-100 group">
-            <div className="flex items-center gap-4">
-               <div className={`h-12 w-12 rounded-xl flex items-center justify-center font-black text-lg shadow-sm transition-colors ${sub.score >= 75 ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
-                 {sub.score || 0}
-               </div>
-               <div>
-                 <h4 className="font-bold text-slate-800 group-hover:text-emerald-700 transition-colors">{sub.exams?.title || 'Ujian'}</h4>
-                 <p className="text-xs text-slate-400 font-medium flex items-center gap-1.5 mt-1">
-                   <FaCalendarAlt className="text-[10px]" /> {format(new Date(sub.created_at), 'dd MMM yyyy HH:mm', { locale: id })}
-                 </p>
-               </div>
+        submissions.slice(0, 5).map((sub) => {
+          const exam = sub.exam || sub.exams || {};
+          const score = sub.score ?? null;
+
+          return (
+            <div key={sub.id} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 transition-all hover:bg-white hover:shadow-lg hover:border-emerald-100 group">
+              <div className="flex items-center gap-4">
+                 <div className={`h-12 w-12 rounded-xl flex items-center justify-center font-black text-lg shadow-sm transition-colors ${score === null || score >= 75 ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                   {score === null ? "-" : score}
+                 </div>
+                 <div>
+                   <h4 className="font-bold text-slate-800 group-hover:text-emerald-700 transition-colors">{exam.title || 'Ujian'}</h4>
+                   <p className="text-xs text-slate-400 font-medium flex items-center gap-1.5 mt-1">
+                     <FaCalendarAlt className="text-[10px]" /> {format(new Date(sub.created_at), 'dd MMM yyyy HH:mm', { locale: id })}
+                   </p>
+                 </div>
+              </div>
+              <FaChevronRight className="text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
             </div>
-            <FaChevronRight className="text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
-          </div>
-        ))
+          );
+        })
       ) : (
         <div className="flex flex-col items-center justify-center py-12 text-center">
            <div className="h-16 w-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-300 mb-4">

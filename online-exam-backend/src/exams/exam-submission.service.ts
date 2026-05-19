@@ -20,7 +20,7 @@ export class ExamSubmissionService {
     studentId: string,
     search: string,
     sort: string = 'created_at',
-    order: 'asc' | 'desc' = 'asc',
+    order: 'asc' | 'desc' = 'desc',
     page: number = 1,
     limit: number = 10,
   ) {
@@ -37,9 +37,7 @@ export class ExamSubmissionService {
       )
       .eq('student_id', studentId);
 
-    if (search?.trim()) {
-      query = query.or(`exam.title.ilike.%${search}%,exam.type.ilike.%${search}%`);
-    }
+    const keyword = search?.trim().toLowerCase();
 
     const { data, count, error } = await query
       .order(sort, { ascending: order === 'asc' })
@@ -47,13 +45,20 @@ export class ExamSubmissionService {
 
     if (error) throw new InternalServerErrorException(error.message);
 
+    const filteredData = keyword
+      ? (data || []).filter((submission: any) =>
+          [submission.exam?.title, submission.exam?.type]
+            .some((value) => String(value ?? '').toLowerCase().includes(keyword)),
+        )
+      : (data || []);
+
     return {
-      data,
+      data: filteredData,
       meta: {
-        total: count || 0,
+        total: keyword ? filteredData.length : count || 0,
         page,
         limit,
-        totalPages: Math.ceil((count || 0) / limit),
+        totalPages: Math.ceil((keyword ? filteredData.length : count || 0) / limit),
       },
     };
   }
