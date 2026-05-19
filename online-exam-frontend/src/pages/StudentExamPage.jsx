@@ -10,6 +10,26 @@ import RichTextRenderer from "../components/RichTextRenderer";
 const alarm = new Audio("https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3");
 alarm.loop = true;
 
+const formatTime = (seconds) => {
+  const safeSeconds = Math.max(0, Number(seconds) || 0);
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainingSeconds = safeSeconds % 60;
+
+  return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
+};
+
+const normalizeOptions = (options) => {
+  if (Array.isArray(options)) return options;
+  if (typeof options !== "string") return [];
+
+  try {
+    const parsed = JSON.parse(options);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 const StudentExamPage = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
@@ -58,7 +78,12 @@ const StudentExamPage = () => {
         console.log(qRes.questions);
         
 
-        setQuestions(qRes.questions || []);
+        const normalizedQuestions = (qRes.questions || []).map((question) => ({
+          ...question,
+          options: normalizeOptions(question.options),
+        }));
+
+        setQuestions(normalizedQuestions);
       } catch (err) {
         console.error("Gagal ambil exam:", err);
         Swal.fire("Error", "Gagal memuat ujian", "error");
