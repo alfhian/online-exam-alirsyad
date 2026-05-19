@@ -268,7 +268,12 @@ const Dashboard = () => {
         // SISWA
         const [todayExamRes, submissionsRes] = await Promise.all([
            api.get("/exams/today", { params: { page: 1, limit: 1 } }),
-           api.get("/exam-submissions/me", { params: { page: 1, limit: 5 } })
+           api
+             .get("/exam-submissions/me", { params: { page: 1, limit: 5 } })
+             .catch((error) => {
+               console.warn("Failed to fetch student submissions:", error);
+               return { data: { data: [] } };
+             }),
         ]);
 
         setSummary({
