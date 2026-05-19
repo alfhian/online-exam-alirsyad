@@ -59,7 +59,7 @@ const TeacherExam = () => {
   }, [search, sort, order, page]);
 
   const handleViewStudents = (examId) => {
-    navigate(`/teacher/exams/${examId}/students`);
+    navigate(`/teacher-exam/${examId}/students`);
   };
 
   return (

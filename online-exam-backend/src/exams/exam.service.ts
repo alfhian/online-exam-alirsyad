@@ -225,24 +225,40 @@ export class ExamService {
     limit: number
   ): Promise<{ data: Exam[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
     const offset = (page - 1) * limit;
-    const today = new Date();
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+    
+    // Get "Today" string in YYYY-MM-DD format for Asia/Jakarta (GMT+7)
+    const now = new Date();
+    const todayStr = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(now);
+
+    // Use local time format without 'Z' for TIMESTAMP comparison
+    const startOfDay = `${todayStr}T00:00:00`;
+    const endOfDay = `${todayStr}T23:59:59`;
 
     // 1. Ambil data student (untuk tahu kelasnya)
     const { data: student, error: stuError } = await this.supabase
       .from('users')
-      .select('class_name')
+      .select('class_id, class_name')
       .eq('id', studentId)
       .single();
 
     if (stuError || !student) throw new NotFoundException('Student not found');
 
+    const classIdentifiers = [student.class_id, student.class_name].filter(Boolean);
+    if (classIdentifiers.length === 0) {
+      return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
+    }
+
     // 2. Ambil ID subject yang sesuai dengan kelas student
+    // Gunakan class_id untuk dicocokkan dengan salah satu identifier dari student
     const { data: validSubjects } = await this.supabase
       .from('subjects')
       .select('id')
-      .eq('class_id', student.class_name)
+      .in('class_id', classIdentifiers)
       .is('deleted_at', null);
 
     const subjectIds = (validSubjects || []).map(s => s.id);

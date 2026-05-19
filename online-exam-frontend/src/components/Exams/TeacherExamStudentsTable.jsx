@@ -9,6 +9,7 @@ const TeacherExamStudentsTable = ({ data, searchParams, setSearchParams }) => {
   const navigate = useNavigate();
   const sort = searchParams.get("sort") || "created_at";
   const order = searchParams.get("order") || "desc";
+  const page = Number(searchParams.get("page")) || 1;
 
   const handleSort = (key) => {
     const currentSort = searchParams.get("sort");
@@ -32,7 +33,7 @@ const TeacherExamStudentsTable = ({ data, searchParams, setSearchParams }) => {
   };
 
   const handleGrade = (submissionId) => {
-    navigate(`/teacher/exams/submission/${submissionId}/grading`);
+    navigate(`/teacher-exam/submission/${submissionId}`);
   };
 
   return (

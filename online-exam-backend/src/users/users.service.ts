@@ -267,7 +267,7 @@ export class UsersService {
     return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
   }
 
-  // RESET ALL SISWA PASSWORD (UNIQUE FOR EACH)
+  // RESET ALL SISWA PASSWORD (SAME FOR ALL)
   async generateSamePasswordForAllSiswa() {
     // FETCH ALL ACTIVE SISWA
     const { data: siswaList, error: fetchError } = await this.supabase
@@ -281,23 +281,24 @@ export class UsersService {
       throw new NotFoundException('No SISWA users found to update');
     }
 
-    // UPDATE EACH SISWA WITH A UNIQUE PASSWORD
-    const updates = siswaList.map((siswa) => {
-      const rawPassword = `SISWA-${this.generateRandomString(8)}`;
-      const hashed = bcrypt.hashSync(rawPassword, 10);
-      return this.supabase
-        .from('users')
-        .update({ password: hashed })
-        .eq('id', siswa.id);
-    });
+    const rawPassword = `TOKEN-${this.generateRandomString(6).toUpperCase()}`;
+    const hashed = bcrypt.hashSync(rawPassword, 10);
 
-    await Promise.all(updates);
+    // UPDATE ALL SISWA WITH THE SAME PASSWORD
+    const { error: updateError } = await this.supabase
+      .from('users')
+      .update({ password: hashed })
+      .eq('role', 'SISWA')
+      .is('deleted_at', null);
 
-    this.logger.log(`Updated ${siswaList.length} SISWA with unique passwords`);
+    if (updateError) throw new InternalServerErrorException(updateError.message);
+
+    this.logger.log(`Updated ${siswaList.length} SISWA with same password: ${rawPassword}`);
 
     return {
       updated: siswaList.length,
-      message: 'Password seluruh siswa berhasil diperbarui dengan token unik.',
+      password: rawPassword,
+      message: 'Password seluruh siswa berhasil diperbarui dengan token baru.',
     };
   }
 

@@ -9,44 +9,28 @@ export class SubjectService {
   constructor(private readonly supabase: SupabaseClient) {}
 
   async create(dto: CreateSubjectDto): Promise<Subject> {
-    try {
-      // CHECK DUPLICATE
-      const { data: existing } = await this.supabase
-        .from('subjects')
-        .select('id')
-        .eq('name', dto.name)
-        .eq('class_id', dto.class_id)
-        .is('deleted_at', null)
-        .single();
+    // CHECK DUPLICATE
+    const { data: existing, error: checkError } = await this.supabase
+      .from('subjects')
+      .select('id')
+      .eq('name', dto.name)
+      .eq('class_id', dto.class_id)
+      .is('deleted_at', null)
+      .maybeSingle();
 
-      if (existing) {
-        throw new InternalServerErrorException(`Mata pelajaran ${dto.name} untuk kelas tersebut sudah ada!`);
-      }
-
-      const { data, error } = await this.supabase
-        .from('subjects')
-        .insert([{ ...dto }])
-        .select()
-        .single();
-
-      if (error) throw new InternalServerErrorException(error.message);
-      return data!;
-    } catch (err: any) {
-      if (err.status === 404) {
-        // This is fine, means no duplicate found by single()
-      } else {
-        throw new InternalServerErrorException(err.message);
-      }
-
-      // Re-try insert after 404 (no duplicate)
-      const { data, error } = await this.supabase
-        .from('subjects')
-        .insert([{ ...dto }])
-        .select()
-        .single();
-      if (error) throw new InternalServerErrorException(error.message);
-      return data!;
+    if (checkError) throw new InternalServerErrorException(checkError.message);
+    if (existing) {
+      throw new BadRequestException(`Mata pelajaran ${dto.name} untuk kelas tersebut sudah ada!`);
     }
+
+    const { data, error } = await this.supabase
+      .from('subjects')
+      .insert([{ ...dto }])
+      .select()
+      .single();
+
+    if (error) throw new InternalServerErrorException(error.message);
+    return data!;
   }
 
   async getDataWithPagination(
@@ -128,49 +112,44 @@ export class SubjectService {
   }
 
   async update(id: string, dto: UpdateSubjectDto & { updated_by?: string }): Promise<Subject> {
-    try {
-      // CHECK DUPLICATE
-      if (dto.name && dto.class_id) {
-        const { data: existing } = await this.supabase
-          .from('subjects')
-          .select('id')
-          .eq('name', dto.name)
-          .eq('class_id', dto.class_id)
-          .is('deleted_at', null)
-          .neq('id', id)
-          .single();
+    // Get existing to merge and check
+    const { data: current, error: fetchError } = await this.supabase
+      .from('subjects')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-        if (existing) {
-          throw new InternalServerErrorException(`Mata pelajaran ${dto.name} untuk kelas tersebut sudah ada!`);
-        }
-      }
+    if (fetchError || !current) throw new NotFoundException(`Subject ${id} not found`);
 
-      const { data, error } = await this.supabase
+    const newName = dto.name || current.name;
+    const newClassId = dto.class_id || current.class_id;
+
+    // CHECK DUPLICATE if name or class_id changed
+    if (dto.name || dto.class_id) {
+      const { data: existing, error: checkError } = await this.supabase
         .from('subjects')
-        .update({ ...dto, updated_at: new Date() })
-        .eq('id', id)
-        .select()
-        .single();
+        .select('id')
+        .eq('name', newName)
+        .eq('class_id', newClassId)
+        .is('deleted_at', null)
+        .neq('id', id)
+        .maybeSingle();
 
-      if (error || !data) throw new NotFoundException(`Subject ${id} not found`);
-      return data;
-    } catch (err: any) {
-      if (err.status === 404) {
-        // This is fine, means no duplicate found
-      } else {
-        throw new InternalServerErrorException(err.message);
+      if (checkError) throw new InternalServerErrorException(checkError.message);
+      if (existing) {
+        throw new BadRequestException(`Mata pelajaran ${newName} untuk kelas tersebut sudah ada!`);
       }
-
-      // Re-try update after 404 (no duplicate)
-      const { data, error } = await this.supabase
-        .from('subjects')
-        .update({ ...dto, updated_at: new Date() })
-        .eq('id', id)
-        .select()
-        .single();
-      if (error || !data) throw new NotFoundException(`Subject ${id} not found`);
-      return data;
     }
+
+    const { data, error } = await this.supabase
+      .from('subjects')
+      .update({ ...dto, updated_at: new Date() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error || !data) throw new NotFoundException(`Subject ${id} not found`);
+    return data;
   }
 
   async softDelete(id: string, deletedBy: string): Promise<Subject> {
