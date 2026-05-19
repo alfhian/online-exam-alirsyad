@@ -22,6 +22,32 @@ export class ExamService {
       .replace(/[\s_-]+/g, '');
   }
 
+  private getDatePart(value: unknown): string {
+    return String(value ?? '').trim().slice(0, 10);
+  }
+
+  private sortExamRows(exams: any[], sort: string, order: 'asc' | 'desc'): any[] {
+    const direction = order === 'asc' ? 1 : -1;
+
+    return exams.sort((left, right) => {
+      const leftValue = left?.[sort];
+      const rightValue = right?.[sort];
+
+      if (leftValue == null && rightValue == null) return 0;
+      if (leftValue == null) return -1 * direction;
+      if (rightValue == null) return 1 * direction;
+
+      if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+        return (leftValue - rightValue) * direction;
+      }
+
+      return String(leftValue).localeCompare(String(rightValue), 'id', {
+        numeric: true,
+        sensitivity: 'base',
+      }) * direction;
+    });
+  }
+
   async create(dto: CreateExamDto): Promise<Exam> {
     // Supabase row type untuk tabel exams
     type ExamRow = {
@@ -248,19 +274,6 @@ export class ExamService {
       day: '2-digit',
     }).format(now);
 
-    const nextDay = new Date(`${todayStr}T00:00:00+07:00`);
-    nextDay.setDate(nextDay.getDate() + 1);
-    const nextDayStr = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Jakarta',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(nextDay);
-
-    // Use local time format without 'Z' for TIMESTAMP comparison.
-    const startOfDay = `${todayStr}T00:00:00`;
-    const startOfNextDay = `${nextDayStr}T00:00:00`;
-
     // 1. Ambil data student (untuk tahu kelasnya)
     const { data: student, error: stuError } = await this.supabase
       .from('users')
@@ -298,24 +311,29 @@ export class ExamService {
 
     const subjectById = new Map(validSubjects.map((subject) => [subject.id, subject]));
 
-    // 3. Query exams yang filter by subjectIds dan date hari ini
-    let query = this.supabase
+    // 3. Ambil kandidat exams dari subject yang sesuai. Tanggal difilter di aplikasi
+    // supaya aman untuk format Supabase "YYYY-MM-DD 00:00:00" maupun ISO string.
+    const { data: candidateExams, error } = await this.supabase
       .from('exams')
-      .select('*', { count: 'exact' })
+      .select('*')
       .is('deleted_at', null)
-      .in('subject_id', subjectIds)
-      .gte('date', startOfDay)
-      .lt('date', startOfNextDay);
-
-    if (search.trim()) {
-      query = query.or(`title.ilike.%${search}%,type.ilike.%${search}%`);
-    }
-
-    const { data: exams, count, error } = await query
-      .order(sort, { ascending: order === 'asc' })
-      .range(offset, offset + limit - 1);
+      .in('subject_id', subjectIds);
 
     if (error) throw new InternalServerErrorException(error.message);
+
+    const searchTerm = search.trim().toLowerCase();
+    const todayExams = (candidateExams || []).filter((exam) => {
+      const isToday = this.getDatePart(exam.date) === todayStr;
+      if (!isToday) return false;
+      if (!searchTerm) return true;
+
+      return [exam.title, exam.type]
+        .some((value) => String(value ?? '').toLowerCase().includes(searchTerm));
+    });
+
+    const sortedExams = this.sortExamRows(todayExams, sort, order);
+    const exams = sortedExams.slice(offset, offset + limit);
+    const total = sortedExams.length;
 
     // 4. Cek mana saja yang sudah di-submit oleh student ini
     const examIdsFound = (exams || []).map(e => e.id);
@@ -341,10 +359,10 @@ export class ExamService {
     return {
       data: finalData,
       meta: {
-        total: count ?? 0,
+        total,
         page,
         limit,
-        totalPages: Math.ceil((count ?? 0) / limit),
+        totalPages: Math.ceil(total / limit),
       },
     };
   }
