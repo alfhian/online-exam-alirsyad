@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { jwtDecode } from "jwt-decode";
+import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import api from "../api/axiosConfig";
 import {
@@ -167,7 +168,10 @@ const PieChartCard = ({ title, roleSummary }) => {
   );
 };
 
-const StudentSubmissions = ({ submissions }) => (
+const StudentSubmissions = ({ submissions }) => {
+  const navigate = useNavigate();
+
+  return (
   <ChartContainer title="Hasil Ujian Terbaru" icon={FaAward}>
     <div className="space-y-4">
       {submissions.length > 0 ? (
@@ -176,7 +180,12 @@ const StudentSubmissions = ({ submissions }) => (
           const score = sub.score ?? null;
 
           return (
-            <div key={sub.id} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 transition-all hover:bg-white hover:shadow-lg hover:border-emerald-100 group">
+            <button
+              key={sub.id}
+              type="button"
+              onClick={() => navigate(`/exam-submissions/${sub.id}`)}
+              className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 transition-all hover:bg-white hover:shadow-lg hover:border-emerald-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/15 group"
+            >
               <div className="flex items-center gap-4">
                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center font-black text-lg shadow-sm transition-colors ${score === null || score >= 75 ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
                    {score === null ? "-" : score}
@@ -189,7 +198,7 @@ const StudentSubmissions = ({ submissions }) => (
                  </div>
               </div>
               <FaChevronRight className="text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
-            </div>
+            </button>
           );
         })
       ) : (
@@ -202,7 +211,8 @@ const StudentSubmissions = ({ submissions }) => (
       )}
     </div>
   </ChartContainer>
-);
+  );
+};
 
 const Dashboard = () => {
   const [summary, setSummary] = useState(emptySummary);
