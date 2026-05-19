@@ -9,6 +9,19 @@ import { UpdateExamDto } from './dto/update-exam.dto';
 export class ExamService {
   constructor(private readonly supabase: SupabaseClient) {}
 
+  private normalizeExamDate(date: string | Date): string {
+    const raw = String(date ?? '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return `${raw}T00:00:00`;
+    return raw;
+  }
+
+  private normalizeClassIdentifier(value: unknown): string {
+    return String(value ?? '')
+      .trim()
+      .toUpperCase()
+      .replace(/[\s_-]+/g, '');
+  }
+
   async create(dto: CreateExamDto): Promise<Exam> {
     // Supabase row type untuk tabel exams
     type ExamRow = {
@@ -28,7 +41,7 @@ export class ExamService {
     .from('exams') // string literal nama tabel
     .insert([{
       ...dto,
-      date: new Date(dto.date).toISOString(), // convert ke string
+      date: this.normalizeExamDate(dto.date),
       notes: dto.notes ?? null,
     }] as ExamRow[]) // paksa ke ExamRow[]
     .select('*')
@@ -116,7 +129,7 @@ export class ExamService {
     const updatedRow = {
       ...oldData,
       ...dto,
-      date: dto.date ? dto.date : oldData.date, // tetap string
+      date: dto.date ? this.normalizeExamDate(dto.date) : oldData.date,
       updated_at: new Date(),
     };
 
@@ -235,9 +248,18 @@ export class ExamService {
       day: '2-digit',
     }).format(now);
 
-    // Use local time format without 'Z' for TIMESTAMP comparison
+    const nextDay = new Date(`${todayStr}T00:00:00+07:00`);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const nextDayStr = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(nextDay);
+
+    // Use local time format without 'Z' for TIMESTAMP comparison.
     const startOfDay = `${todayStr}T00:00:00`;
-    const endOfDay = `${todayStr}T23:59:59`;
+    const startOfNextDay = `${nextDayStr}T00:00:00`;
 
     // 1. Ambil data student (untuk tahu kelasnya)
     const { data: student, error: stuError } = await this.supabase
@@ -248,32 +270,42 @@ export class ExamService {
 
     if (stuError || !student) throw new NotFoundException('Student not found');
 
-    const classIdentifiers = [student.class_id, student.class_name].filter(Boolean);
-    if (classIdentifiers.length === 0) {
+    const rawClassIdentifiers = [student.class_id, student.class_name].filter(Boolean);
+    const classIdentifiers = new Set(
+      rawClassIdentifiers.map((value) => this.normalizeClassIdentifier(value)).filter(Boolean),
+    );
+
+    if (classIdentifiers.size === 0) {
       return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
     }
 
-    // 2. Ambil ID subject yang sesuai dengan kelas student
-    // Gunakan class_id untuk dicocokkan dengan salah satu identifier dari student
-    const { data: validSubjects } = await this.supabase
+    // 2. Ambil subject, lalu cocokkan kelas secara ternormalisasi agar beda case/spasi tidak membuat kosong.
+    const { data: subjects, error: subjectError } = await this.supabase
       .from('subjects')
-      .select('id')
-      .in('class_id', classIdentifiers)
+      .select('id, name, class_id')
       .is('deleted_at', null);
 
-    const subjectIds = (validSubjects || []).map(s => s.id);
+    if (subjectError) throw new InternalServerErrorException(subjectError.message);
+
+    const validSubjects = (subjects || []).filter((subject) =>
+      classIdentifiers.has(this.normalizeClassIdentifier(subject.class_id)),
+    );
+
+    const subjectIds = validSubjects.map(s => s.id);
     if (subjectIds.length === 0) {
       return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
     }
 
+    const subjectById = new Map(validSubjects.map((subject) => [subject.id, subject]));
+
     // 3. Query exams yang filter by subjectIds dan date hari ini
     let query = this.supabase
       .from('exams')
-      .select('*, subject:subjects(name, class_id)', { count: 'exact' })
+      .select('*', { count: 'exact' })
       .is('deleted_at', null)
       .in('subject_id', subjectIds)
       .gte('date', startOfDay)
-      .lte('date', endOfDay);
+      .lt('date', startOfNextDay);
 
     if (search.trim()) {
       query = query.or(`title.ilike.%${search}%,type.ilike.%${search}%`);
@@ -287,16 +319,22 @@ export class ExamService {
 
     // 4. Cek mana saja yang sudah di-submit oleh student ini
     const examIdsFound = (exams || []).map(e => e.id);
-    const { data: submissions } = await this.supabase
-      .from('exam_submissions')
-      .select('exam_id')
-      .eq('student_id', studentId)
-      .in('exam_id', examIdsFound);
+    let submittedExamIds = new Set<string>();
 
-    const submittedExamIds = new Set((submissions || []).map(s => s.exam_id));
+    if (examIdsFound.length > 0) {
+      const { data: submissions, error: submissionsError } = await this.supabase
+        .from('exam_submissions')
+        .select('exam_id')
+        .eq('student_id', studentId)
+        .in('exam_id', examIdsFound);
+
+      if (submissionsError) throw new InternalServerErrorException(submissionsError.message);
+      submittedExamIds = new Set((submissions || []).map(s => s.exam_id));
+    }
 
     const finalData = (exams || []).map(e => ({
       ...e,
+      subject: subjectById.get(e.subject_id) || null,
       is_submitted: submittedExamIds.has(e.id),
     }));
 

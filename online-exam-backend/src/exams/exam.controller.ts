@@ -27,6 +27,12 @@ export class ExamController {
     private readonly supabase: SupabaseClient,
   ) {}
 
+  private normalizeExamDate(date: string | Date): string {
+    const raw = String(date ?? '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return `${raw}T00:00:00`;
+    return raw;
+  }
+
   @Post()
   async create(@Body() body: any, @Req() req: any) {
     const createdBy = req.user?.sub;
@@ -37,7 +43,7 @@ export class ExamController {
       );
     }
 
-    const formattedDate = body.date instanceof Date ? body.date.toISOString() : String(body.date);
+    const formattedDate = this.normalizeExamDate(body.date);
 
     const { data, error } = await this.supabase
       .from('exams')
@@ -97,9 +103,16 @@ export class ExamController {
 
   @Put(':id')
   async update(@Param('id') id: string, @Body() dto: any) {
+    const updatePayload = {
+      ...dto,
+      ...(dto.date ? { date: this.normalizeExamDate(dto.date) } : {}),
+      updated_at: new Date(),
+      updated_by: dto.updated_by,
+    };
+
     const { data, error } = await this.supabase
       .from('exams')
-      .update(dto)
+      .update(updatePayload)
       .eq('id', id)
       .select('*')
       .single();
