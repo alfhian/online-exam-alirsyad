@@ -78,9 +78,18 @@ export class ExamController {
     @Query('order') order: 'asc' | 'desc' = 'asc',
     @Query('page') page = '1',
     @Query('limit') limit = '10',
+    @Query('debug') debug = '0',
   ) {
     const userlogin = req.user?.sub;
-    return this.examService.getTodayExamsWithPagination(userlogin, search, sort, order, Number(page), Number(limit));
+    return this.examService.getTodayExamsWithPagination(
+      userlogin,
+      search,
+      sort,
+      order,
+      Number(page),
+      Number(limit),
+      debug === '1',
+    );
   }
 
   @Get(':id')

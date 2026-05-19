@@ -261,8 +261,9 @@ export class ExamService {
     sort: string,
     order: 'asc' | 'desc',
     page: number,
-    limit: number
-  ): Promise<{ data: Exam[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+    limit: number,
+    debug = false,
+  ): Promise<{ data: Exam[]; meta: { total: number; page: number; limit: number; totalPages: number; debug?: any } }> {
     const offset = (page - 1) * limit;
     
     // Get "Today" string in YYYY-MM-DD format for Asia/Jakarta (GMT+7)
@@ -277,8 +278,9 @@ export class ExamService {
     // 1. Ambil data student (untuk tahu kelasnya)
     const { data: student, error: stuError } = await this.supabase
       .from('users')
-      .select('class_id, class_name')
+      .select('id, userid, name, role, class_id, class_name, deleted_at')
       .eq('id', studentId)
+      .is('deleted_at', null)
       .single();
 
     if (stuError || !student) throw new NotFoundException('Student not found');
@@ -289,7 +291,23 @@ export class ExamService {
     );
 
     if (classIdentifiers.size === 0) {
-      return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
+      return {
+        data: [],
+        meta: {
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+          ...(debug ? {
+            debug: {
+              reason: 'student_class_empty',
+              today: todayStr,
+              authStudentId: studentId,
+              student,
+            },
+          } : {}),
+        },
+      };
     }
 
     // 2. Ambil subject, lalu cocokkan kelas secara ternormalisasi agar beda case/spasi tidak membuat kosong.
@@ -306,7 +324,26 @@ export class ExamService {
 
     const subjectIds = validSubjects.map(s => s.id);
     if (subjectIds.length === 0) {
-      return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
+      return {
+        data: [],
+        meta: {
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+          ...(debug ? {
+            debug: {
+              reason: 'no_matching_subjects_for_student_class',
+              today: todayStr,
+              authStudentId: studentId,
+              student,
+              normalizedClassIdentifiers: Array.from(classIdentifiers),
+              subjectsRead: subjects?.length ?? 0,
+              sampleSubjects: (subjects || []).slice(0, 10),
+            },
+          } : {}),
+        },
+      };
     }
 
     const subjectById = new Map(validSubjects.map((subject) => [subject.id, subject]));
@@ -363,6 +400,24 @@ export class ExamService {
         page,
         limit,
         totalPages: Math.ceil(total / limit),
+        ...(debug ? {
+          debug: {
+            reason: total > 0 ? 'ok' : 'no_exam_with_today_date',
+            today: todayStr,
+            authStudentId: studentId,
+            student,
+            normalizedClassIdentifiers: Array.from(classIdentifiers),
+            matchingSubjects: validSubjects,
+            candidateExamCount: candidateExams?.length ?? 0,
+            candidateExams: (candidateExams || []).map((exam) => ({
+              id: exam.id,
+              title: exam.title,
+              date: exam.date,
+              datePart: this.getDatePart(exam.date),
+              subject_id: exam.subject_id,
+            })),
+          },
+        } : {}),
       },
     };
   }
