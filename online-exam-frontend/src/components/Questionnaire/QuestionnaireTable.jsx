@@ -2,6 +2,7 @@ import React from "react";
 import { HiChevronUp, HiChevronDown, HiSelector } from "react-icons/hi";
 import ActionMenu from "../ActionMenu";
 import PropTypes from "prop-types";
+import RichTextRenderer from "../RichTextRenderer";
 
 const QuestionnaireTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit }) => {
   const sort = searchParams.get("sort") || "question";
@@ -64,7 +65,7 @@ const QuestionnaireTable = ({ data, onRefresh, searchParams, setSearchParams, on
                   <td className="px-4 py-3 text-center">{index + 1}</td>
                   <td className="px-4 py-3 text-center">{q.index}</td>
                   <td className="px-4 py-3 text-gray-800 break-words line-clamp-2">
-                    {q.question?.replace(/<[^>]*>/g, "") || "-"}
+                    {q.question ? <RichTextRenderer content={q.question} /> : "-"}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span
@@ -79,11 +80,15 @@ const QuestionnaireTable = ({ data, onRefresh, searchParams, setSearchParams, on
                   </td>
                   <td className="px-4 py-3 text-gray-700 break-words">
                     {q.type === "multiple_choice" && Array.isArray(q.options)
-                      ? q.options.map((opt) => opt.value).join(", ")
+                      ? q.options.map((opt, optIndex) => (
+                          <div key={optIndex} className="mb-2 rounded-lg bg-slate-50 p-2">
+                            <RichTextRenderer content={opt.value} />
+                          </div>
+                        ))
                       : "-"}
                   </td>
                   <td className="px-4 py-3 text-center text-gray-700 font-medium">
-                    {q.answer || "-"}
+                    {q.answer ? <RichTextRenderer content={q.answer} /> : "-"}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <ActionMenu itemId={q.id} onEdit={onEdit} menu="questionnaire" />

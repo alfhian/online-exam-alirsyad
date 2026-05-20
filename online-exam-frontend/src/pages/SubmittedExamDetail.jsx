@@ -6,6 +6,7 @@ import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import formatDateOnly from "../utils/formatDateOnly";
 import { FaClipboardCheck } from "react-icons/fa";
+import RichTextRenderer from "../components/RichTextRenderer";
 
 const MySwal = withReactContent(Swal);
 
@@ -45,11 +46,15 @@ const SubmittedExamDetail = () => {
 
   const renderAnswer = (ans) => {
     // Soal tipe image
-    if (ans.question.type === "multiple_choice" && ans.question.options?.[0]?.type === "image") {
+    if (
+      ans.question.type === "multiple_choice" &&
+      ans.question.options?.[0]?.type === "image" &&
+      /^(https?:|data:image\/)/.test(ans.answer)
+    ) {
       return <img src={ans.answer} alt="Jawaban" className="max-w-xs mt-2 rounded shadow" />;
     }
     // Soal tipe text / essay
-    return <span>{ans.answer || "-"}</span>;
+    return ans.answer ? <RichTextRenderer content={ans.answer} /> : <span>-</span>;
   };
 
   return (
@@ -95,9 +100,10 @@ const SubmittedExamDetail = () => {
                       key={ans.question_id}
                       className="p-4 bg-emerald-50 border-l-4 border-emerald-400 rounded-lg shadow-sm"
                     >
-                      <p className="font-medium text-gray-800">
-                        {idx + 1}. {ans.question.question}
-                      </p>
+                      <div className="font-medium text-gray-800">
+                        <span>{idx + 1}.</span>
+                        <RichTextRenderer content={ans.question.question} />
+                      </div>
                       <p className="mt-2">
                         <span className="font-semibold">Jawaban:</span>{" "}
                         {renderAnswer(ans)}

@@ -20,7 +20,7 @@ const RichTextRenderer = ({ content }) => {
           return (
             <div
               key={index}
-              className="inline"
+              className="rich-text-html"
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(part) }}
             />
           );

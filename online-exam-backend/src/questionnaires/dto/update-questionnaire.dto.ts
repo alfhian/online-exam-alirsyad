@@ -44,4 +44,8 @@ export class UpdateQuestionnaireDto {
   @ValidateNested({ each: true })
   @Type(() => OptionDto)
   options?: OptionDto[];
+
+  @IsOptional()
+  @IsString()
+  answer?: string;
 }

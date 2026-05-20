@@ -19,7 +19,12 @@ const formatTime = (seconds) => {
 };
 
 const normalizeOptions = (options) => {
-  if (Array.isArray(options)) return options;
+  if (Array.isArray(options)) {
+    return options.map((option) => ({
+      type: option.type || "text",
+      value: option.value || "",
+    }));
+  }
   if (typeof options !== "string") return [];
 
   try {
@@ -547,14 +552,16 @@ const StudentExamPage = () => {
                           checked={studentAnswers[q.id] === opt.value}
                           className="accent-blue-600 scale-110"
                         />
-                        {opt.type === "text" ? (
-                          <span className="text-gray-700">{opt.value}</span>
-                        ) : (
+                        {opt.type === "image" && /^https?:|^data:image\//.test(opt.value) ? (
                           <img
                             src={opt.value}
                             alt={`option-${i}`}
                             className="h-20 rounded-md border"
                           />
+                        ) : (
+                          <div className="flex-1 text-gray-700">
+                            <RichTextRenderer content={opt.value} />
+                          </div>
                         )}
                       </label>
                     ))}

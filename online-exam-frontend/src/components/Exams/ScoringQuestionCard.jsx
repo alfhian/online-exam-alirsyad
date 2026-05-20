@@ -20,10 +20,10 @@ const ScoringQuestionCard = ({ question, index, isCorrect, onSetScore }) => {
                 : "border-gray-200 bg-gray-50"
             }`}
           >
-            {opt.type === "text" ? (
-              <span>{opt.value}</span>
-            ) : (
+            {opt.type === "image" && /^https?:|^data:image\//.test(opt.value) ? (
               <img src={opt.value} alt={`Option ${idx + 1}`} className="h-16 object-contain" />
+            ) : (
+              <RichTextRenderer content={opt.value} />
             )}
           </div>
         ))}
@@ -35,9 +35,9 @@ const ScoringQuestionCard = ({ question, index, isCorrect, onSetScore }) => {
   const renderStudentAnswer = () => {
     if (type === "essay") {
       return (
-        <p className="bg-gray-50 p-3 rounded-md mt-2 text-gray-800 whitespace-pre-line">
-          {studentAnswer || "-"}
-        </p>
+        <div className="bg-gray-50 p-3 rounded-md mt-2 text-gray-800">
+          {studentAnswer ? <RichTextRenderer content={studentAnswer} /> : "-"}
+        </div>
       );
     }
     return null;
@@ -51,14 +51,14 @@ const ScoringQuestionCard = ({ question, index, isCorrect, onSetScore }) => {
     return (
       <div className="mt-2 text-sm text-gray-600">
         <span className="font-medium">Jawaban Benar:</span>{" "}
-        {correctAnswer.startsWith("http") ? (
+        {/^(https?:|data:image\/)/.test(correctAnswer) ? (
           <img
             src={correctAnswer}
             alt="Jawaban benar"
             className="h-16 mt-1 rounded-md border"
           />
         ) : (
-          <span className="ml-1">{correctAnswer}</span>
+          <RichTextRenderer content={correctAnswer} />
         )}
       </div>
     );

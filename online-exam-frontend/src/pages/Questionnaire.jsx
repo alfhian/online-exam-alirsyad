@@ -5,6 +5,7 @@ import axios from "axios";
 import SearchBar from "../components/Users/SearchBar";
 import QuestionnaireTable from "../components/Questionnaire/QuestionnaireTable";
 import Pagination from "../components/Paginate";
+import RichTextEditor from "../components/RichTextEditor";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import {
@@ -24,6 +25,31 @@ const initialFormData = {
   options: [],
   answer: "",
   index: 0,
+};
+
+const stripHtml = (value = "") =>
+  String(value)
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .trim();
+
+const normalizeOptions = (options) => {
+  if (Array.isArray(options)) {
+    return options.map((option) => ({
+      type: option.type || "text",
+      value: option.value || "",
+    }));
+  }
+
+  if (typeof options === "string") {
+    try {
+      return normalizeOptions(JSON.parse(options));
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
 };
 
 
@@ -51,7 +77,7 @@ const Questionnaire = () => {
   });
 
   const resetForm = () => {
-    setFormData(initialFormData);
+    setFormData({ ...initialFormData, options: [] });
     setSelectedId(null);
   };
 
@@ -64,7 +90,7 @@ const Questionnaire = () => {
   const addOption = () =>
     setFormData((prev) => ({
       ...prev,
-      options: [...prev.options, { value: "" }],
+      options: [...prev.options, { type: "text", value: "" }],
     }));
 
   const removeOption = (i) =>
@@ -118,8 +144,12 @@ const Questionnaire = () => {
         MySwal.fire("Gagal!", "Soal pilihan ganda harus memiliki minimal 2 opsi jawaban!", "error");
         return;
       }
-      if (formData.options.some(opt => !opt.value.trim())) {
+      if (formData.options.some(opt => !stripHtml(opt.value))) {
         MySwal.fire("Gagal!", "Semua opsi jawaban harus diisi!", "error");
+        return;
+      }
+      if (!formData.answer) {
+        MySwal.fire("Gagal!", "Jawaban benar harus dipilih!", "error");
         return;
       }
     }
@@ -163,7 +193,7 @@ const Questionnaire = () => {
         setFormData({
           question: q.question,
           type: q.type,
-          options: q.options || [],
+          options: normalizeOptions(q.options),
           answer: q.answer,
           index: q.index,
         });
@@ -191,8 +221,12 @@ const Questionnaire = () => {
         MySwal.fire("Gagal!", "Soal pilihan ganda harus memiliki minimal 2 opsi jawaban!", "error");
         return;
       }
-      if (formData.options.some(opt => !opt.value.trim())) {
+      if (formData.options.some(opt => !stripHtml(opt.value))) {
         MySwal.fire("Gagal!", "Semua opsi jawaban harus diisi!", "error");
+        return;
+      }
+      if (!formData.answer) {
+        MySwal.fire("Gagal!", "Jawaban benar harus dipilih!", "error");
         return;
       }
     }
@@ -344,12 +378,10 @@ const Questionnaire = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Pertanyaan
                         </label>
-                        <textarea
+                        <RichTextEditor
                           value={formData.question}
-                          onChange={(e) => setFormData(prev => ({ ...prev, question: e.target.value }))}
-                          rows={5}
+                          onChange={(value) => setFormData(prev => ({ ...prev, question: value }))}
                           placeholder="Tulis pertanyaan di sini"
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
                         />
                       </div>
 
@@ -360,7 +392,15 @@ const Questionnaire = () => {
                         <select
                           name="type"
                           value={formData.type}
-                          onChange={handleInputChange}
+                          onChange={(e) => {
+                            const nextType = e.target.value;
+                            setFormData((prev) => ({
+                              ...prev,
+                              type: nextType,
+                              options: nextType === "multiple_choice" ? prev.options : [],
+                              answer: nextType === "multiple_choice" ? prev.answer : "",
+                            }));
+                          }}
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
                         >
                           <option value="multiple_choice">
@@ -379,26 +419,30 @@ const Questionnaire = () => {
                             {formData.options.map((opt, i) => (
                               <div
                                 key={i}
-                                className="flex items-center gap-2"
+                                className="rounded-xl border border-slate-100 bg-slate-50 p-3"
                               >
-                                <input
-                                  type="text"
+                                <div className="mb-2 flex items-center justify-between gap-3">
+                                  <p className="text-xs font-bold text-slate-500">
+                                    Opsi {i + 1}
+                                  </p>
+                                </div>
+                                <RichTextEditor
                                   value={opt.value}
-                                  onChange={(e) =>
-                                    updateOption(i, e.target.value)
-                                  }
+                                  onChange={(value) => updateOption(i, value)}
                                   placeholder={`Opsi ${i + 1}`}
-                                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                                  minRows={3}
                                 />
                                 <button
+                                  type="button"
                                   onClick={() => removeOption(i)}
-                                  className="px-2 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                                  className="mt-2 px-2 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600"
                                 >
                                   ✕
                                 </button>
                               </div>
                             ))}
                             <button
+                              type="button"
                               onClick={addOption}
                               className="px-3 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700"
                             >
@@ -412,13 +456,28 @@ const Questionnaire = () => {
                         <label className="block text-sm font-medium text-gray-700">
                           Jawaban Benar
                         </label>
-                        <input
-                          type="text"
-                          name="answer"
-                          value={formData.answer}
-                          onChange={handleInputChange}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
-                        />
+                        {formData.type === "multiple_choice" ? (
+                          <select
+                            name="answer"
+                            value={formData.answer}
+                            onChange={handleInputChange}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                          >
+                            <option value="">Pilih jawaban benar</option>
+                            {formData.options.map((opt, i) => (
+                              <option key={i} value={opt.value}>
+                                {`Opsi ${i + 1}: ${stripHtml(opt.value) || "Konten media"}`}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <RichTextEditor
+                            value={formData.answer}
+                            onChange={(value) => setFormData(prev => ({ ...prev, answer: value }))}
+                            placeholder="Opsional: tulis panduan jawaban essay"
+                            minRows={3}
+                          />
+                        )}
                       </div>
 
                       <div>
