@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import {
   FaBold,
   FaImage,
@@ -14,59 +14,66 @@ import RichTextRenderer from "./RichTextRenderer";
 const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
 const MAX_IMAGE_SIZE_LABEL = "2 MB";
 
-const insertAtCursor = (text, insertText, selectionStart, selectionEnd) => {
-  const before = text.slice(0, selectionStart);
-  const selected = text.slice(selectionStart, selectionEnd);
-  const after = text.slice(selectionEnd);
-
-  return `${before}${insertText.replace("{{selected}}", selected)}${after}`;
-};
-
 const RichTextEditor = ({
   value,
   onChange,
   placeholder = "Tulis konten di sini",
   minRows = 5,
 }) => {
-  const textareaRef = useRef(null);
+  const editorRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  const applyInsert = (template) => {
-    const textarea = textareaRef.current;
-    const currentValue = value || "";
-    const start = textarea?.selectionStart ?? currentValue.length;
-    const end = textarea?.selectionEnd ?? currentValue.length;
-    const nextValue = insertAtCursor(currentValue, template, start, end);
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || document.activeElement === editor) return;
+    if (editor.innerHTML !== (value || "")) {
+      editor.innerHTML = value || "";
+    }
+  }, [value]);
 
-    onChange(nextValue);
-
-    requestAnimationFrame(() => {
-      textarea?.focus();
-      const cursor = start + template.replace("{{selected}}", "").length;
-      textarea?.setSelectionRange(cursor, cursor);
-    });
+  const syncValue = () => {
+    onChange(editorRef.current?.innerHTML || "");
   };
 
-  const wrapSelection = (tag) => {
-    applyInsert(`<${tag}>{{selected}}</${tag}>`);
+  const focusEditor = () => {
+    editorRef.current?.focus();
+  };
+
+  const runCommand = (command, commandValue = null) => {
+    focusEditor();
+    document.execCommand(command, false, commandValue);
+    syncValue();
+  };
+
+  const insertHtml = (html) => {
+    focusEditor();
+    document.execCommand("insertHTML", false, html);
+    syncValue();
+  };
+
+  const insertFormula = (template) => {
+    const selectedText = window.getSelection()?.toString() || "x";
+    const formula = template(selectedText);
+    focusEditor();
+    document.execCommand("insertText", false, formula);
+    syncValue();
   };
 
   const insertTable = () => {
-    const table = `
-<table>
-  <tbody>
-    <tr>
-      <td>Kolom 1</td>
-      <td>Kolom 2</td>
-    </tr>
-    <tr>
-      <td>Isi</td>
-      <td>Isi</td>
-    </tr>
-  </tbody>
-</table>`;
-
-    applyInsert(table);
+    insertHtml(`
+      <table>
+        <tbody>
+          <tr>
+            <td>Kolom 1</td>
+            <td>Kolom 2</td>
+          </tr>
+          <tr>
+            <td>Isi</td>
+            <td>Isi</td>
+          </tr>
+        </tbody>
+      </table>
+    `);
   };
 
   const handleImageChange = (event) => {
@@ -81,22 +88,22 @@ const RichTextEditor = ({
 
     const reader = new FileReader();
     reader.onload = () => {
-      applyInsert(`<img src="${reader.result}" alt="Gambar soal" />`);
+      insertHtml(`<img src="${reader.result}" alt="Gambar soal" />`);
       event.target.value = "";
     };
     reader.readAsDataURL(file);
   };
 
   const tools = [
-    { label: "Bold", icon: FaBold, action: () => wrapSelection("strong") },
-    { label: "Italic", icon: FaItalic, action: () => wrapSelection("em") },
-    { label: "Underline", icon: FaUnderline, action: () => wrapSelection("u") },
-    { label: "Bullet list", icon: FaListUl, action: () => applyInsert("<ul><li>{{selected}}</li></ul>") },
-    { label: "Number list", icon: FaListOl, action: () => applyInsert("<ol><li>{{selected}}</li></ol>") },
-    { label: "Rumus", icon: FaSquareRootAlt, action: () => applyInsert("${{selected}}$") },
-    { label: "Pangkat", text: "x^2", action: () => applyInsert("$x^2$") },
-    { label: "Akar", text: "sqrt", action: () => applyInsert("$\\sqrt{x}$") },
-    { label: "Pecahan", text: "a/b", action: () => applyInsert("$\\frac{a}{b}$") },
+    { label: "Bold", icon: FaBold, action: () => runCommand("bold") },
+    { label: "Italic", icon: FaItalic, action: () => runCommand("italic") },
+    { label: "Underline", icon: FaUnderline, action: () => runCommand("underline") },
+    { label: "Bullet list", icon: FaListUl, action: () => runCommand("insertUnorderedList") },
+    { label: "Number list", icon: FaListOl, action: () => runCommand("insertOrderedList") },
+    { label: "Pangkat", text: "x^2", action: () => insertFormula((selected) => `$${selected || "x"}^2$`) },
+    { label: "Akar", text: "sqrt", action: () => insertFormula((selected) => `$\\sqrt{${selected || "x"}}$`) },
+    { label: "Pecahan", text: "a/b", action: () => insertFormula(() => "$\\frac{a}{b}$") },
+    { label: "Rumus bebas", icon: FaSquareRootAlt, action: () => insertFormula((selected) => `$${selected || "x"}$`) },
     { label: "Tabel", icon: FaTable, action: insertTable },
     { label: "Gambar", icon: FaImage, action: () => fileInputRef.current?.click() },
   ];
@@ -111,7 +118,7 @@ const RichTextEditor = ({
               key={tool.label}
               type="button"
               onClick={tool.action}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-600 shadow-sm hover:bg-emerald-50 hover:text-emerald-700"
+              className="inline-flex h-9 min-w-9 items-center justify-center rounded-lg bg-white px-2 text-slate-600 shadow-sm hover:bg-emerald-50 hover:text-emerald-700"
               title={tool.label}
               aria-label={tool.label}
             >
@@ -130,23 +137,25 @@ const RichTextEditor = ({
 
       <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-900">
         <p>
-          Gambar maksimal {MAX_IMAGE_SIZE_LABEL}. Rumus memakai format LaTeX di antara tanda dollar:
-          pangkat <code>$x^2$</code>, akar <code>$\sqrt&#123;x&#125;$</code>, pecahan <code>$\frac&#123;a&#125;&#123;b&#125;$</code>.
+          Ketik langsung seperti editor biasa. Gambar maksimal {MAX_IMAGE_SIZE_LABEL}. Untuk rumus,
+          blok teks lalu klik tombol pangkat/akar, atau gunakan tombol rumus yang tersedia.
         </p>
       </div>
 
-      <textarea
-        ref={textareaRef}
-        value={value || ""}
-        onChange={(event) => onChange(event.target.value)}
-        rows={minRows}
-        placeholder={placeholder}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 font-mono text-xs leading-relaxed focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+      <div
+        ref={editorRef}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={syncValue}
+        onBlur={syncValue}
+        data-placeholder={placeholder}
+        className="rich-text-editor min-h-[12rem] w-full overflow-y-auto rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm leading-relaxed focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+        style={{ minHeight: `${Math.max(minRows, 3) * 2.5}rem` }}
       />
 
       <div className="rounded-xl border border-slate-200 bg-white p-3">
         <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-          Preview
+          Preview tampilan siswa
         </p>
         {value ? (
           <RichTextRenderer content={value} />
