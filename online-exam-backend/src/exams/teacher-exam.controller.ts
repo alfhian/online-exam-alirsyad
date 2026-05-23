@@ -3,6 +3,7 @@ import {
   Get,
   Query,
   InternalServerErrorException,
+  HttpException,
   UseGuards,
   Param,
   Patch,
@@ -40,6 +41,7 @@ export class TeacherExamsController {
         limitNumber,
       );
     } catch (err: any) {
+      if (err instanceof HttpException) throw err;
       throw new InternalServerErrorException(err.message);
     }
   }
@@ -53,6 +55,7 @@ export class TeacherExamsController {
     try {
       return await this.teacherExamService.getSubmissionDetail(submissionId);
     } catch (err: any) {
+      if (err instanceof HttpException) throw err;
       throw new InternalServerErrorException(err.message);
     }
   }
@@ -76,6 +79,7 @@ export class TeacherExamsController {
         body.totalScore,
       );
     } catch (err: any) {
+      if (err instanceof HttpException) throw err;
       throw new InternalServerErrorException(err.message);
     }
   }
@@ -102,6 +106,7 @@ export class TeacherExamsController {
         limitNumber,
       );
     } catch (err: any) {
+      if (err instanceof HttpException) throw err;
       throw new InternalServerErrorException(err.message);
     }
   }

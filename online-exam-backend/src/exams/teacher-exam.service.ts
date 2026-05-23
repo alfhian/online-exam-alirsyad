@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { ExamSubmission } from './entities/exam-submission.entity';
 import { Exam } from './entities/exam.entity';
@@ -7,6 +7,20 @@ import { Questionnaire } from 'src/questionnaires/entities/questionnaire.entity'
 @Injectable()
 export class TeacherExamsService {
   constructor(private readonly supabase: SupabaseClient) {}
+
+  private normalizeAnswers(value: unknown): any[] {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+
+    return [];
+  }
 
   /**
    * 🔹 Ambil daftar ujian yang sudah pernah dikerjakan siswa
@@ -231,6 +245,15 @@ export class TeacherExamsService {
     totalScore?: number,
   ) {
     try {
+      if (!Array.isArray(scores) || scores.length === 0) {
+        throw new BadRequestException('Data penilaian tidak boleh kosong');
+      }
+
+      const normalizedScore = Number(totalScore);
+      if (!Number.isFinite(normalizedScore)) {
+        throw new BadRequestException('Total nilai tidak valid');
+      }
+
       const { data: submission, error } = await this.supabase
         .from('exam_submissions')
         .select('answers, score')
@@ -239,16 +262,27 @@ export class TeacherExamsService {
 
       if (error || !submission) throw new NotFoundException('Submission not found');
 
-      const updatedAnswers = (submission.answers || []).map(a => {
-        const match = scores.find(s => s.question_id === a.question_id);
-        return match ? { ...a, is_correct: match.is_correct } : a;
+      const existingAnswers = this.normalizeAnswers(submission.answers);
+      if (existingAnswers.length === 0) {
+        throw new BadRequestException('Jawaban siswa tidak ditemukan pada submission ini');
+      }
+
+      const scoreByQuestionId = new Map(
+        scores.map((score) => [String(score.question_id), Boolean(score.is_correct)]),
+      );
+
+      const updatedAnswers = existingAnswers.map(a => {
+        const questionId = String(a.question_id);
+        return scoreByQuestionId.has(questionId)
+          ? { ...a, is_correct: scoreByQuestionId.get(questionId) }
+          : a;
       });
 
       const { data, error: updateError } = await this.supabase
         .from('exam_submissions')
         .update({
           answers: updatedAnswers,
-          score: typeof totalScore === 'number' ? totalScore : submission.score,
+          score: Math.max(0, Math.min(100, Math.round(normalizedScore))),
         })
         .eq('id', submissionId)
         .select()
@@ -262,6 +296,7 @@ export class TeacherExamsService {
         score: data?.score,
       };
     } catch (err: any) {
+      if (err instanceof BadRequestException || err instanceof NotFoundException) throw err;
       throw new InternalServerErrorException(err.message);
     }
   }

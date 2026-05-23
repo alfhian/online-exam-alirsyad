@@ -135,7 +135,11 @@ const TeacherExamScoring = () => {
 
     } catch (err) {
       console.error(err);
-      MySwal.fire("Error", "Gagal menyimpan nilai.", "error");
+      const message =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Gagal menyimpan nilai.";
+      MySwal.fire("Error", message, "error");
     }
   };
 

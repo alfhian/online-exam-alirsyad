@@ -11,6 +11,9 @@ import {
 } from "react-icons/fa";
 import RichTextRenderer from "./RichTextRenderer";
 
+const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
+const MAX_IMAGE_SIZE_LABEL = "2 MB";
+
 const insertAtCursor = (text, insertText, selectionStart, selectionEnd) => {
   const before = text.slice(0, selectionStart);
   const selected = text.slice(selectionStart, selectionEnd);
@@ -70,6 +73,12 @@ const RichTextEditor = ({
     const file = event.target.files?.[0];
     if (!file) return;
 
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      window.alert(`Ukuran gambar maksimal ${MAX_IMAGE_SIZE_LABEL}. Silakan kompres gambar terlebih dahulu.`);
+      event.target.value = "";
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
       applyInsert(`<img src="${reader.result}" alt="Gambar soal" />`);
@@ -85,6 +94,9 @@ const RichTextEditor = ({
     { label: "Bullet list", icon: FaListUl, action: () => applyInsert("<ul><li>{{selected}}</li></ul>") },
     { label: "Number list", icon: FaListOl, action: () => applyInsert("<ol><li>{{selected}}</li></ol>") },
     { label: "Rumus", icon: FaSquareRootAlt, action: () => applyInsert("${{selected}}$") },
+    { label: "Pangkat", text: "x^2", action: () => applyInsert("$x^2$") },
+    { label: "Akar", text: "sqrt", action: () => applyInsert("$\\sqrt{x}$") },
+    { label: "Pecahan", text: "a/b", action: () => applyInsert("$\\frac{a}{b}$") },
     { label: "Tabel", icon: FaTable, action: insertTable },
     { label: "Gambar", icon: FaImage, action: () => fileInputRef.current?.click() },
   ];
@@ -103,7 +115,7 @@ const RichTextEditor = ({
               title={tool.label}
               aria-label={tool.label}
             >
-              <Icon className="text-sm" />
+              {Icon ? <Icon className="text-sm" /> : <span className="text-[10px] font-bold">{tool.text}</span>}
             </button>
           );
         })}
@@ -114,6 +126,13 @@ const RichTextEditor = ({
           className="hidden"
           onChange={handleImageChange}
         />
+      </div>
+
+      <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-900">
+        <p>
+          Gambar maksimal {MAX_IMAGE_SIZE_LABEL}. Rumus memakai format LaTeX di antara tanda dollar:
+          pangkat <code>$x^2$</code>, akar <code>$\sqrt&#123;x&#125;$</code>, pecahan <code>$\frac&#123;a&#125;&#123;b&#125;$</code>.
+        </p>
       </div>
 
       <textarea
