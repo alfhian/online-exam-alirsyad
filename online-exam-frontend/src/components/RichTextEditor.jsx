@@ -1,6 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Quill from "quill";
 import katex from "katex";
+import "mathlive";
+import "mathlive/static.css";
 import "quill/dist/quill.snow.css";
 import RichTextRenderer from "./RichTextRenderer";
 
@@ -16,7 +18,10 @@ const RichTextEditor = ({
   const editorHostRef = useRef(null);
   const quillRef = useRef(null);
   const fileInputRef = useRef(null);
+  const mathFieldRef = useRef(null);
   const lastValueRef = useRef(value || "");
+  const [isMathEditorOpen, setIsMathEditorOpen] = useState(false);
+  const [mathValue, setMathValue] = useState("");
 
   useEffect(() => {
     if (!editorHostRef.current || quillRef.current) return;
@@ -77,6 +82,30 @@ const RichTextEditor = ({
     }
   }, [value]);
 
+  useEffect(() => {
+    if (!isMathEditorOpen) return;
+
+    const mathField = mathFieldRef.current;
+    if (!mathField) return;
+
+    mathField.value = mathValue;
+    mathField.mathVirtualKeyboardPolicy = "auto";
+    mathField.smartFence = true;
+    mathField.smartSuperscript = true;
+    mathField.placeholder = "Tulis rumus di sini";
+
+    const handleInput = () => setMathValue(mathField.value);
+    mathField.addEventListener("input", handleInput);
+
+    window.setTimeout(() => {
+      mathField.focus();
+    }, 50);
+
+    return () => {
+      mathField.removeEventListener("input", handleInput);
+    };
+  }, [isMathEditorOpen]);
+
   const getEditor = () => quillRef.current;
 
   const insertHtml = (html) => {
@@ -98,13 +127,28 @@ const RichTextEditor = ({
     editor.setSelection(range.index + 2, 0);
   };
 
-  const insertCustomFormula = () => {
-    const latex = window.prompt(
-      "Ketik rumus singkat. Contoh: x^2, \\sqrt{x}, atau \\frac{a}{b}",
-      "x^2",
-    );
+  const openMathEditor = (initialValue = "") => {
+    setMathValue(initialValue);
+    setIsMathEditorOpen(true);
+  };
 
-    if (latex?.trim()) insertFormula(latex.trim());
+  const insertMathTemplate = (template) => {
+    const mathField = mathFieldRef.current;
+    if (!mathField) return;
+
+    mathField.insert(template, { selectionMode: "placeholder" });
+    setMathValue(mathField.value);
+    mathField.focus();
+  };
+
+  const submitMathFormula = () => {
+    const latex = mathFieldRef.current?.value || mathValue;
+    if (latex.trim()) {
+      insertFormula(latex.trim());
+    }
+
+    setMathValue("");
+    setIsMathEditorOpen(false);
   };
 
   const insertTable = () => {
@@ -150,7 +194,7 @@ const RichTextEditor = ({
       <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-900">
         <p>
           Ketik langsung seperti editor biasa. Gambar maksimal {MAX_IMAGE_SIZE_LABEL}.
-          Gunakan tombol di bawah untuk menambah gambar, tabel, atau rumus tanpa mengetik kode.
+          Gunakan tombol di bawah untuk menambah gambar, tabel, atau rumus dengan editor visual.
         </p>
       </div>
 
@@ -178,31 +222,31 @@ const RichTextEditor = ({
         </button>
         <button
           type="button"
-          onClick={() => insertFormula("x^2")}
+          onClick={() => openMathEditor("x^{2}")}
           className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700"
         >
           Pangkat
         </button>
         <button
           type="button"
-          onClick={() => insertFormula("\\sqrt{x}")}
+          onClick={() => openMathEditor("\\sqrt{x}")}
           className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700"
         >
           Akar
         </button>
         <button
           type="button"
-          onClick={() => insertFormula("\\frac{a}{b}")}
+          onClick={() => openMathEditor("\\frac{a}{b}")}
           className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700"
         >
           Pecahan
         </button>
         <button
           type="button"
-          onClick={insertCustomFormula}
+          onClick={() => openMathEditor("")}
           className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700"
         >
-          Rumus Lain
+          Tambah Rumus
         </button>
         <input
           ref={fileInputRef}
@@ -223,6 +267,78 @@ const RichTextEditor = ({
           <p className="text-sm italic text-slate-400">Konten belum diisi.</p>
         )}
       </div>
+
+      {isMathEditorOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-3 py-4 sm:items-center">
+          <div className="w-full max-w-xl rounded-2xl bg-white p-4 shadow-2xl">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Tambah Rumus</h3>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  Klik area rumus, lalu gunakan keyboard rumus yang muncul atau tombol cepat di bawah.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMathEditorOpen(false)}
+                className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200"
+              >
+                Tutup
+              </button>
+            </div>
+
+            <math-field ref={mathFieldRef} class="mathlive-field" />
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => insertMathTemplate("x^{#?}")}
+                className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700"
+              >
+                Pangkat
+              </button>
+              <button
+                type="button"
+                onClick={() => insertMathTemplate("\\sqrt{#?}")}
+                className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700"
+              >
+                Akar
+              </button>
+              <button
+                type="button"
+                onClick={() => insertMathTemplate("\\frac{#?}{#?}")}
+                className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700"
+              >
+                Pecahan
+              </button>
+              <button
+                type="button"
+                onClick={() => insertMathTemplate("\\pi")}
+                className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700"
+              >
+                Pi
+              </button>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsMathEditorOpen(false)}
+                className="rounded-lg bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={submitMathFormula}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+              >
+                Sisipkan Rumus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
