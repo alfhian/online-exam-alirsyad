@@ -468,3 +468,62 @@ textarea:focus {
   vertical-align: baseline;
   user-select: all;
 }
+
+.app-rich-quill {
+  border-radius: 0.9rem;
+  background: #ffffff;
+}
+
+.app-rich-quill .ql-toolbar {
+  border-color: #dbe1ea;
+  border-radius: 0.9rem 0.9rem 0 0;
+  background: #f8fafc;
+}
+
+.app-rich-quill .ql-container {
+  min-height: 12rem;
+  border-color: #dbe1ea;
+  border-radius: 0 0 0.9rem 0.9rem;
+  font-family: "Inter", "Poppins", system-ui, sans-serif;
+  font-size: 0.875rem;
+}
+
+.app-rich-quill .ql-editor {
+  min-height: 12rem;
+  line-height: 1.65;
+}
+
+.app-rich-quill .ql-editor ul {
+  list-style: disc outside;
+  padding-left: 1.5rem;
+}
+
+.app-rich-quill .ql-editor ol {
+  list-style: decimal outside;
+  padding-left: 1.5rem;
+}
+
+.app-rich-quill .ql-editor li {
+  display: list-item;
+  padding-left: 0.25rem;
+}
+
+.app-rich-quill .ql-editor img {
+  max-width: min(100%, 42rem);
+  max-height: 28rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+}
+
+.app-rich-quill .ql-editor table {
+  width: 100%;
+  margin: 0.75rem 0;
+  border-collapse: collapse;
+  border: 1px solid #cbd5e1;
+}
+
+.app-rich-quill .ql-editor td,
+.app-rich-quill .ql-editor th {
+  border: 1px solid #cbd5e1;
+  padding: 0.5rem 0.65rem;
+}

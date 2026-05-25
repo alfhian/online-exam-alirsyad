@@ -1,15 +1,6 @@
-import { useEffect, useRef } from "react";
-import {
-  FaBold,
-  FaImage,
-  FaItalic,
-  FaListOl,
-  FaListUl,
-  FaSquareRootAlt,
-  FaTable,
-  FaUnderline,
-} from "react-icons/fa";
-import katex from "katex";
+import { useMemo, useRef } from "react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 import RichTextRenderer from "./RichTextRenderer";
 
 const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
@@ -21,44 +12,28 @@ const RichTextEditor = ({
   placeholder = "Tulis konten di sini",
   minRows = 5,
 }) => {
-  const editorRef = useRef(null);
+  const quillRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor || document.activeElement === editor) return;
-    if (editor.innerHTML !== (value || "")) {
-      editor.innerHTML = value || "";
-    }
-  }, [value]);
-
-  const syncValue = () => {
-    onChange(editorRef.current?.innerHTML || "");
-  };
-
-  const focusEditor = () => {
-    editorRef.current?.focus();
-  };
-
-  const runCommand = (command, commandValue = null) => {
-    focusEditor();
-    document.execCommand(command, false, commandValue);
-    syncValue();
-  };
+  const getEditor = () => quillRef.current?.getEditor();
 
   const insertHtml = (html) => {
-    focusEditor();
-    document.execCommand("insertHTML", false, html);
-    syncValue();
+    const editor = getEditor();
+    if (!editor) return;
+
+    const range = editor.getSelection(true);
+    editor.clipboard.dangerouslyPasteHTML(range.index, html);
+    editor.setSelection(range.index + 1, 0);
   };
 
   const insertFormula = (latex) => {
-    const formulaHtml = katex.renderToString(latex, {
-      throwOnError: false,
-      displayMode: false,
-    });
+    const editor = getEditor();
+    if (!editor) return;
 
-    insertHtml(`<span class="math-inline" data-latex="${latex}">${formulaHtml}</span>&nbsp;`);
+    const range = editor.getSelection(true);
+    editor.insertEmbed(range.index, "formula", latex, "user");
+    editor.insertText(range.index + 1, " ", "user");
+    editor.setSelection(range.index + 2, 0);
   };
 
   const insertCustomFormula = () => {
@@ -71,20 +46,18 @@ const RichTextEditor = ({
   };
 
   const insertTable = () => {
-    insertHtml(`
-      <table>
-        <tbody>
-          <tr>
-            <td>Kolom 1</td>
-            <td>Kolom 2</td>
-          </tr>
-          <tr>
-            <td>Isi</td>
-            <td>Isi</td>
-          </tr>
-        </tbody>
-      </table>
-    `);
+    const rows = Number(window.prompt("Jumlah baris tabel", "2")) || 2;
+    const cols = Number(window.prompt("Jumlah kolom tabel", "2")) || 2;
+    const safeRows = Math.min(Math.max(rows, 1), 8);
+    const safeCols = Math.min(Math.max(cols, 1), 6);
+
+    const body = Array.from({ length: safeRows }, (_, rowIndex) => (
+      `<tr>${Array.from({ length: safeCols }, (_, colIndex) => (
+        `<td>Baris ${rowIndex + 1}, Kolom ${colIndex + 1}</td>`
+      )).join("")}</tr>`
+    )).join("");
+
+    insertHtml(`<table><tbody>${body}</tbody></table><p><br></p>`);
   };
 
   const handleImageChange = (event) => {
@@ -99,44 +72,101 @@ const RichTextEditor = ({
 
     const reader = new FileReader();
     reader.onload = () => {
-      insertHtml(`<img src="${reader.result}" alt="Gambar soal" />`);
+      const editor = getEditor();
+      if (!editor) return;
+
+      const range = editor.getSelection(true);
+      editor.insertEmbed(range.index, "image", reader.result, "user");
+      editor.setSelection(range.index + 1, 0);
       event.target.value = "";
     };
     reader.readAsDataURL(file);
   };
 
-  const tools = [
-    { label: "Bold", icon: FaBold, action: () => runCommand("bold") },
-    { label: "Italic", icon: FaItalic, action: () => runCommand("italic") },
-    { label: "Underline", icon: FaUnderline, action: () => runCommand("underline") },
-    { label: "Bullet list", icon: FaListUl, action: () => runCommand("insertUnorderedList") },
-    { label: "Number list", icon: FaListOl, action: () => runCommand("insertOrderedList") },
-    { label: "Pangkat", text: "x^2", action: () => insertFormula("x^2") },
-    { label: "Akar", text: "sqrt", action: () => insertFormula("\\sqrt{x}") },
-    { label: "Pecahan", text: "a/b", action: () => insertFormula("\\frac{a}{b}") },
-    { label: "Rumus bebas", icon: FaSquareRootAlt, action: insertCustomFormula },
-    { label: "Tabel", icon: FaTable, action: insertTable },
-    { label: "Gambar", icon: FaImage, action: () => fileInputRef.current?.click() },
+  const modules = useMemo(() => ({
+    toolbar: {
+      container: [
+        ["bold", "italic", "underline"],
+        [{ list: "ordered" }, { list: "bullet" }],
+        ["clean"],
+      ],
+    },
+  }), []);
+
+  const formats = [
+    "bold",
+    "italic",
+    "underline",
+    "list",
+    "bullet",
+    "image",
+    "formula",
   ];
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
-        {tools.map((tool) => {
-          const Icon = tool.icon;
-          return (
-            <button
-              key={tool.label}
-              type="button"
-              onClick={tool.action}
-              className="inline-flex h-9 min-w-9 items-center justify-center rounded-lg bg-white px-2 text-slate-600 shadow-sm hover:bg-emerald-50 hover:text-emerald-700"
-              title={tool.label}
-              aria-label={tool.label}
-            >
-              {Icon ? <Icon className="text-sm" /> : <span className="text-[10px] font-bold">{tool.text}</span>}
-            </button>
-          );
-        })}
+      <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-900">
+        <p>
+          Ketik langsung seperti editor biasa. Gambar maksimal {MAX_IMAGE_SIZE_LABEL}.
+          Gunakan tombol di bawah untuk menambah gambar, tabel, atau rumus tanpa mengetik kode.
+        </p>
+      </div>
+
+      <ReactQuill
+        ref={quillRef}
+        theme="snow"
+        value={value || ""}
+        onChange={onChange}
+        modules={modules}
+        formats={formats}
+        placeholder={placeholder}
+        className="app-rich-quill"
+        style={{ minHeight: `${Math.max(minRows, 3) * 2.5}rem` }}
+      />
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700"
+        >
+          Tambah Gambar
+        </button>
+        <button
+          type="button"
+          onClick={insertTable}
+          className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700"
+        >
+          Tambah Tabel
+        </button>
+        <button
+          type="button"
+          onClick={() => insertFormula("x^2")}
+          className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700"
+        >
+          Pangkat
+        </button>
+        <button
+          type="button"
+          onClick={() => insertFormula("\\sqrt{x}")}
+          className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700"
+        >
+          Akar
+        </button>
+        <button
+          type="button"
+          onClick={() => insertFormula("\\frac{a}{b}")}
+          className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700"
+        >
+          Pecahan
+        </button>
+        <button
+          type="button"
+          onClick={insertCustomFormula}
+          className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700"
+        >
+          Rumus Lain
+        </button>
         <input
           ref={fileInputRef}
           type="file"
@@ -145,24 +175,6 @@ const RichTextEditor = ({
           onChange={handleImageChange}
         />
       </div>
-
-      <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-900">
-        <p>
-          Ketik langsung seperti editor biasa. Gambar maksimal {MAX_IMAGE_SIZE_LABEL}. Untuk rumus,
-          cukup klik tombol pangkat, akar, pecahan, atau tombol rumus bebas.
-        </p>
-      </div>
-
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={syncValue}
-        onBlur={syncValue}
-        data-placeholder={placeholder}
-        className="rich-text-editor min-h-[12rem] w-full overflow-y-auto rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm leading-relaxed focus:ring-2 focus:ring-emerald-400 focus:outline-none"
-        style={{ minHeight: `${Math.max(minRows, 3) * 2.5}rem` }}
-      />
 
       <div className="rounded-xl border border-slate-200 bg-white p-3">
         <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
