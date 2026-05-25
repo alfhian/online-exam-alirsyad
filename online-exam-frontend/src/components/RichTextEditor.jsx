@@ -1,6 +1,7 @@
-import { useMemo, useRef } from "react";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
+import { useEffect, useRef } from "react";
+import Quill from "quill";
+import katex from "katex";
+import "quill/dist/quill.snow.css";
 import RichTextRenderer from "./RichTextRenderer";
 
 const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
@@ -12,10 +13,71 @@ const RichTextEditor = ({
   placeholder = "Tulis konten di sini",
   minRows = 5,
 }) => {
+  const editorHostRef = useRef(null);
   const quillRef = useRef(null);
   const fileInputRef = useRef(null);
+  const lastValueRef = useRef(value || "");
 
-  const getEditor = () => quillRef.current?.getEditor();
+  useEffect(() => {
+    if (!editorHostRef.current || quillRef.current) return;
+
+    if (typeof window !== "undefined") {
+      window.katex = katex;
+    }
+
+    const editor = new Quill(editorHostRef.current, {
+      theme: "snow",
+      placeholder,
+      modules: {
+        toolbar: [
+          ["bold", "italic", "underline"],
+          [{ list: "ordered" }, { list: "bullet" }],
+          ["clean"],
+        ],
+      },
+      formats: [
+        "bold",
+        "italic",
+        "underline",
+        "list",
+        "bullet",
+        "image",
+        "formula",
+      ],
+    });
+
+    editor.root.innerHTML = value || "";
+    lastValueRef.current = value || "";
+
+    editor.on("text-change", () => {
+      const html = editor.root.innerHTML;
+      const normalizedHtml = html === "<p><br></p>" ? "" : html;
+      lastValueRef.current = normalizedHtml;
+      onChange(normalizedHtml);
+    });
+
+    quillRef.current = editor;
+  }, []);
+
+  useEffect(() => {
+    const editor = quillRef.current;
+    if (!editor) return;
+
+    const nextValue = value || "";
+    if (nextValue === lastValueRef.current || nextValue === editor.root.innerHTML) {
+      return;
+    }
+
+    const selection = editor.getSelection();
+    editor.root.innerHTML = nextValue;
+    lastValueRef.current = nextValue;
+
+    if (selection) {
+      editor.setSelection(selection);
+    }
+  }, [value]);
+
+  const getEditor = () => quillRef.current;
 
   const insertHtml = (html) => {
     const editor = getEditor();
@@ -83,26 +145,6 @@ const RichTextEditor = ({
     reader.readAsDataURL(file);
   };
 
-  const modules = useMemo(() => ({
-    toolbar: {
-      container: [
-        ["bold", "italic", "underline"],
-        [{ list: "ordered" }, { list: "bullet" }],
-        ["clean"],
-      ],
-    },
-  }), []);
-
-  const formats = [
-    "bold",
-    "italic",
-    "underline",
-    "list",
-    "bullet",
-    "image",
-    "formula",
-  ];
-
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-900">
@@ -112,17 +154,12 @@ const RichTextEditor = ({
         </p>
       </div>
 
-      <ReactQuill
-        ref={quillRef}
-        theme="snow"
-        value={value || ""}
-        onChange={onChange}
-        modules={modules}
-        formats={formats}
-        placeholder={placeholder}
+      <div
         className="app-rich-quill"
         style={{ minHeight: `${Math.max(minRows, 3) * 2.5}rem` }}
-      />
+      >
+        <div ref={editorHostRef} />
+      </div>
 
       <div className="flex flex-wrap gap-2">
         <button
