@@ -9,6 +9,7 @@ import {
   FaTable,
   FaUnderline,
 } from "react-icons/fa";
+import katex from "katex";
 import RichTextRenderer from "./RichTextRenderer";
 
 const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
@@ -51,12 +52,22 @@ const RichTextEditor = ({
     syncValue();
   };
 
-  const insertFormula = (template) => {
-    const selectedText = window.getSelection()?.toString() || "x";
-    const formula = template(selectedText);
-    focusEditor();
-    document.execCommand("insertText", false, formula);
-    syncValue();
+  const insertFormula = (latex) => {
+    const formulaHtml = katex.renderToString(latex, {
+      throwOnError: false,
+      displayMode: false,
+    });
+
+    insertHtml(`<span class="math-inline" data-latex="${latex}">${formulaHtml}</span>&nbsp;`);
+  };
+
+  const insertCustomFormula = () => {
+    const latex = window.prompt(
+      "Ketik rumus singkat. Contoh: x^2, \\sqrt{x}, atau \\frac{a}{b}",
+      "x^2",
+    );
+
+    if (latex?.trim()) insertFormula(latex.trim());
   };
 
   const insertTable = () => {
@@ -100,10 +111,10 @@ const RichTextEditor = ({
     { label: "Underline", icon: FaUnderline, action: () => runCommand("underline") },
     { label: "Bullet list", icon: FaListUl, action: () => runCommand("insertUnorderedList") },
     { label: "Number list", icon: FaListOl, action: () => runCommand("insertOrderedList") },
-    { label: "Pangkat", text: "x^2", action: () => insertFormula((selected) => `$${selected || "x"}^2$`) },
-    { label: "Akar", text: "sqrt", action: () => insertFormula((selected) => `$\\sqrt{${selected || "x"}}$`) },
-    { label: "Pecahan", text: "a/b", action: () => insertFormula(() => "$\\frac{a}{b}$") },
-    { label: "Rumus bebas", icon: FaSquareRootAlt, action: () => insertFormula((selected) => `$${selected || "x"}$`) },
+    { label: "Pangkat", text: "x^2", action: () => insertFormula("x^2") },
+    { label: "Akar", text: "sqrt", action: () => insertFormula("\\sqrt{x}") },
+    { label: "Pecahan", text: "a/b", action: () => insertFormula("\\frac{a}{b}") },
+    { label: "Rumus bebas", icon: FaSquareRootAlt, action: insertCustomFormula },
     { label: "Tabel", icon: FaTable, action: insertTable },
     { label: "Gambar", icon: FaImage, action: () => fileInputRef.current?.click() },
   ];
@@ -138,7 +149,7 @@ const RichTextEditor = ({
       <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-900">
         <p>
           Ketik langsung seperti editor biasa. Gambar maksimal {MAX_IMAGE_SIZE_LABEL}. Untuk rumus,
-          blok teks lalu klik tombol pangkat/akar, atau gunakan tombol rumus yang tersedia.
+          cukup klik tombol pangkat, akar, pecahan, atau tombol rumus bebas.
         </p>
       </div>
 
