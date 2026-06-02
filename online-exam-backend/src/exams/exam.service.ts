@@ -83,17 +83,38 @@ export class ExamService {
     sort: string,
     order: 'asc' | 'desc',
     page: number,
-    limit: number
+    limit: number,
+    user?: any,
   ): Promise<{ data: Exam[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
     const offset = (page - 1) * limit;
 
     let query = this.supabase
       .from('exams')
-      .select('*', { count: 'exact' })
+      .select('*, subject:subjects(id,name,class_id,teacher_id)', { count: 'exact' })
       .is('deleted_at', null);
 
     if (search.trim()) {
       query = query.or(`title.ilike.%${search}%,type.ilike.%${search}%`);
+    }
+
+    if (String(user?.role || '').toUpperCase() === 'GURU') {
+      const { data: subjects, error: subjectError } = await this.supabase
+        .from('subjects')
+        .select('id')
+        .eq('teacher_id', user.sub)
+        .is('deleted_at', null);
+
+      if (subjectError) throw new InternalServerErrorException(subjectError.message);
+
+      const subjectIds = (subjects || []).map((subject) => subject.id);
+      if (subjectIds.length === 0) {
+        return {
+          data: [],
+          meta: { total: 0, page, limit, totalPages: 0 },
+        };
+      }
+
+      query = query.in('subject_id', subjectIds);
     }
 
     const { data, count, error } = await query

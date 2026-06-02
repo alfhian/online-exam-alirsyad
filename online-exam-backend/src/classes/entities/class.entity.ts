@@ -1,6 +1,6 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   Column,
   OneToMany,
   CreateDateColumn,
@@ -11,20 +11,20 @@ import { Subject } from '../../subjects/entities/subject.entity';
 
 @Entity('classes') // Optional: untuk kontrol nama tabel
 export class Classes {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn({ length: 100 })
   id: string;
 
   @Column({ length: 100 })
   name: string;
 
-  @Column()
+  @Column({ nullable: true })
   grade?: number;
 
   @CreateDateColumn()
   created_at: Date;
 
-  @Column({ length: 100 })
-  created_by: string;
+  @Column({ length: 100, nullable: true })
+  created_by?: string;
 
   @UpdateDateColumn({ nullable: true })
   updated_at?: Date;

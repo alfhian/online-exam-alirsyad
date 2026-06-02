@@ -5,7 +5,7 @@ import { HiChevronUp, HiChevronDown, HiSelector } from "react-icons/hi";
 import ActionMenu from "../ActionMenu";
 import PropTypes from "prop-types";
 
-const ExamTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit }) => {
+const ExamTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit, onDelete }) => {
   const sort = searchParams.get("sort") || "title";
   const order = searchParams.get("order") || "asc";
   const [selectedExamId, setSelectedExamId] = useState(null);
@@ -102,6 +102,7 @@ const ExamTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit }) =
                     <ActionMenu
                       itemId={exam.id}
                       onEdit={onEdit}
+                      onDelete={onDelete}
                       menu="exam"
                       type={exam.type}
                       onShowStudents={openStudentsModal}
@@ -151,6 +152,7 @@ const ExamTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit }) =
                   <ActionMenu
                     itemId={exam.id}
                     onEdit={onEdit}
+                    onDelete={onDelete}
                     menu="exam"
                     type={exam.type}
                     onShowStudents={openStudentsModal}
@@ -196,6 +198,7 @@ ExamTable.propTypes = {
   searchParams: PropTypes.object.isRequired,
   setSearchParams: PropTypes.func.isRequired,
   onEdit: PropTypes.func,
+  onDelete: PropTypes.func,
 };
 
 export default ExamTable;

@@ -22,6 +22,23 @@ export class TeacherExamsService {
     return [];
   }
 
+  private async assertTeacherCanAccessExam(examId: string, user?: any) {
+    if (String(user?.role || '').toUpperCase() !== 'GURU') return;
+
+    const { data: exam, error } = await this.supabase
+      .from('exams')
+      .select('id, subject:subjects(teacher_id)')
+      .eq('id', examId)
+      .single();
+
+    if (error || !exam) throw new NotFoundException('Exam not found');
+
+    const subject = Array.isArray(exam.subject) ? exam.subject[0] : exam.subject;
+    if (subject?.teacher_id !== user.sub) {
+      throw new BadRequestException('Anda tidak memiliki akses ke ujian ini');
+    }
+  }
+
   /**
    * 🔹 Ambil daftar ujian yang sudah pernah dikerjakan siswa
    * ✅ Tambahkan jumlah submission yang belum di-scoring (unscored_count)
@@ -32,6 +49,7 @@ export class TeacherExamsService {
     order: 'asc' | 'desc' = 'desc',
     page = 1,
     limit = 10,
+    user?: any,
   ) {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
@@ -51,11 +69,37 @@ export class TeacherExamsService {
         if (s.score === null || s.score === undefined) unscoredMap[s.exam_id]++;
       });
 
+      let allowedExamIds = examIds;
+      if (String(user?.role || '').toUpperCase() === 'GURU') {
+        const { data: subjects, error: subjectError } = await this.supabase
+          .from('subjects')
+          .select('id')
+          .eq('teacher_id', user.sub)
+          .is('deleted_at', null);
+
+        if (subjectError) throw new InternalServerErrorException(subjectError.message);
+
+        const subjectIds = (subjects || []).map((subject) => subject.id);
+        if (!subjectIds.length) return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
+
+        const { data: exams, error: examError } = await this.supabase
+          .from('exams')
+          .select('id')
+          .in('id', examIds)
+          .in('subject_id', subjectIds)
+          .is('deleted_at', null);
+
+        if (examError) throw new InternalServerErrorException(examError.message);
+        allowedExamIds = (exams || []).map((exam) => exam.id);
+        if (!allowedExamIds.length) return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
+      }
+
       // Ambil daftar ujian + subject info
       let query = this.supabase
         .from('exams')
         .select('*, subject:subjects(name, class_id)', { count: 'exact' })
-        .in('id', examIds);
+        .in('id', allowedExamIds)
+        .is('deleted_at', null);
 
       if (search) {
         query = query.or(`title.ilike.%${search}%,type.ilike.%${search}%`);
@@ -94,6 +138,7 @@ export class TeacherExamsService {
     search = '',
     page = 1,
     limit = 10,
+    user?: any,
   ) {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
@@ -164,7 +209,7 @@ export class TeacherExamsService {
   /**
    * 🔹 Ambil detail ujian yang disubmit siswa
    */
-  async getSubmissionDetail(submissionId: string) {
+  async getSubmissionDetail(submissionId: string, user?: any) {
     try {
       // ambil submission dulu
       const { data: submission, error } = await this.supabase
@@ -174,6 +219,7 @@ export class TeacherExamsService {
         .single();
 
       if (error || !submission) throw new NotFoundException(`Submission not found`);
+      await this.assertTeacherCanAccessExam(submission.exam_id, user);
 
       // ambil student manual
       const { data: student } = await this.supabase
@@ -207,7 +253,8 @@ export class TeacherExamsService {
       };
 
       // ambil questions manual
-      const questionIds = [...new Set((submission.answers || []).map(a => a.question_id))];
+      const submissionAnswers = this.normalizeAnswers(submission.answers);
+      const questionIds = [...new Set(submissionAnswers.map(a => a.question_id))];
 
       const { data: questions } = await this.supabase
         .from('questionnaires')
@@ -215,7 +262,7 @@ export class TeacherExamsService {
         .in('id', questionIds);
 
       const mappedQuestions = (questions || []).map(q => {
-        const ans = submission.answers.find(a => a.question_id === q.id);
+        const ans = submissionAnswers.find(a => a.question_id === q.id);
         return {
           ...q,
           student_answer: ans?.answer ?? null,
@@ -243,6 +290,7 @@ export class TeacherExamsService {
     submissionId: string,
     scores: { question_id: string; is_correct: boolean }[],
     totalScore?: number,
+    user?: any,
   ) {
     try {
       if (!Array.isArray(scores) || scores.length === 0) {
@@ -256,11 +304,12 @@ export class TeacherExamsService {
 
       const { data: submission, error } = await this.supabase
         .from('exam_submissions')
-        .select('answers, score')
+        .select('answers, score, exam_id')
         .eq('id', submissionId)
         .single();
 
       if (error || !submission) throw new NotFoundException('Submission not found');
+      await this.assertTeacherCanAccessExam(submission.exam_id, user);
 
       const existingAnswers = this.normalizeAnswers(submission.answers);
       if (existingAnswers.length === 0) {

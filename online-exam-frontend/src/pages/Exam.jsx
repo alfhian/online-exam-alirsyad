@@ -168,6 +168,28 @@ const Exam = () => {
     }
   };
 
+  const handleDelete = async (id) => {
+    const result = await MySwal.fire({
+      title: "Hapus ujian?",
+      text: "Ujian akan disembunyikan dari daftar aktif.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Hapus",
+      cancelButtonText: "Batal",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      await api.delete(`/exams/${id}`);
+      MySwal.fire("Berhasil!", "Ujian berhasil dihapus.", "success");
+      fetchExams();
+    } catch (err) {
+      const msg = err.response?.data?.message || "Tidak dapat menghapus ujian.";
+      MySwal.fire("Gagal!", msg, "error");
+    }
+  };
+
   return (
     <Sidebar>
       <div className="module-shell">
@@ -209,6 +231,7 @@ const Exam = () => {
                   searchParams={searchParams}
                   setSearchParams={setSearchParams}
                   onEdit={handleEdit}
+                  onDelete={handleDelete}
                 />
               </div>
 

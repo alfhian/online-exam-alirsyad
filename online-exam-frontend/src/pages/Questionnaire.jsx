@@ -1,7 +1,6 @@
 import { useState, useEffect, Fragment } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
-import axios from "axios";
 import SearchBar from "../components/Users/SearchBar";
 import QuestionnaireTable from "../components/Questionnaire/QuestionnaireTable";
 import Pagination from "../components/Paginate";
@@ -16,6 +15,7 @@ import {
   TransitionChild,
 } from "@headlessui/react";
 import { FaQuestionCircle } from "react-icons/fa";
+import api from "../api/axiosConfig";
 
 const MySwal = withReactContent(Swal);
 
@@ -108,11 +108,10 @@ const Questionnaire = () => {
   const fetchQuestionnaires = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_BASE_URL}/exams/${examId}/questionnaires`,
+      const res = await api.get(
+        `/exams/${examId}/questionnaires`,
         {
           params: { search, sort, order, page, limit: pageSize },
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         }
       );
 
@@ -155,11 +154,7 @@ const Questionnaire = () => {
     }
 
     try {
-      await axios.post(
-        `${import.meta.env.VITE_API_BASE_URL}/exams/${examId}/questionnaires`,
-        formData,
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-      );
+      await api.post(`/exams/${examId}/questionnaires`, formData);
       setShowModal(false);
       resetForm();
       MySwal.fire({
@@ -182,10 +177,7 @@ const Questionnaire = () => {
 
   const handleEdit = async (id) => {
     try {
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_BASE_URL}/exams/${examId}/questionnaires/${id}`,
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-      );
+      const res = await api.get(`/exams/${examId}/questionnaires/${id}`);
       
       console.log(res.data);
       const q = res.data;
@@ -232,11 +224,7 @@ const Questionnaire = () => {
     }
 
     try {
-      await axios.put(
-        `${import.meta.env.VITE_API_BASE_URL}/exams/${examId}/questionnaires/${selectedId}`,
-        formData,
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-      );
+      await api.put(`/exams/${examId}/questionnaires/${selectedId}`, formData);
       setEditModalOpen(false);
       resetForm();
       MySwal.fire({
@@ -254,6 +242,28 @@ const Questionnaire = () => {
         text: msg,
         icon: "error",
       });
+    }
+  };
+
+  const handleDelete = async (id) => {
+    const result = await MySwal.fire({
+      title: "Hapus soal?",
+      text: "Soal akan disembunyikan dari daftar pertanyaan aktif.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Hapus",
+      cancelButtonText: "Batal",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      await api.delete(`/exams/${examId}/questionnaires/${id}`);
+      MySwal.fire("Berhasil!", "Soal ujian berhasil dihapus.", "success");
+      fetchQuestionnaires();
+    } catch (err) {
+      const msg = err.response?.data?.message || "Tidak dapat menghapus soal.";
+      MySwal.fire("Gagal!", msg, "error");
     }
   };
 
@@ -298,6 +308,7 @@ const Questionnaire = () => {
                 searchParams={searchParams}
                 setSearchParams={setSearchParams}
                 onEdit={handleEdit}
+                onDelete={handleDelete}
               />
 
               <div className="flex items-center justify-between mt-6">
@@ -334,11 +345,7 @@ const Questionnaire = () => {
           <Dialog
             as="div"
             className="relative z-10"
-            onClose={() => {
-              setShowModal(false);
-              setEditModalOpen(false);
-              resetForm();
-            }}
+            onClose={() => {}}
           >
             <TransitionChild
               as={Fragment}

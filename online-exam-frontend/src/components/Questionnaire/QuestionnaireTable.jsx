@@ -4,7 +4,7 @@ import ActionMenu from "../ActionMenu";
 import PropTypes from "prop-types";
 import RichTextRenderer from "../RichTextRenderer";
 
-const QuestionnaireTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit }) => {
+const QuestionnaireTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit, onDelete }) => {
   const sort = searchParams.get("sort") || "question";
   const order = searchParams.get("order") || "asc";
 
@@ -91,7 +91,7 @@ const QuestionnaireTable = ({ data, onRefresh, searchParams, setSearchParams, on
                     {q.answer ? <RichTextRenderer content={q.answer} /> : "-"}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <ActionMenu itemId={q.id} onEdit={onEdit} menu="questionnaire" />
+                    <ActionMenu itemId={q.id} onEdit={onEdit} onDelete={onDelete} menu="questionnaire" />
                   </td>
                 </tr>
               ))
@@ -136,7 +136,7 @@ const QuestionnaireTable = ({ data, onRefresh, searchParams, setSearchParams, on
                   </div>
                 </div>
                 <div className="absolute top-0 right-0">
-                  <ActionMenu itemId={q.id} onEdit={onEdit} menu="questionnaire" />
+                  <ActionMenu itemId={q.id} onEdit={onEdit} onDelete={onDelete} menu="questionnaire" />
                 </div>
               </div>
 
@@ -172,6 +172,7 @@ QuestionnaireTable.propTypes = {
   searchParams: PropTypes.object.isRequired,
   setSearchParams: PropTypes.func.isRequired,
   onEdit: PropTypes.func,
+  onDelete: PropTypes.func,
 };
 
 export default QuestionnaireTable;

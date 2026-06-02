@@ -51,6 +51,7 @@ export class SubjectController {
     @Query('order') order: 'asc' | 'desc' = 'asc',
     @Query('page') page = '1',
     @Query('limit') limit = '10',
+    @Req() req: any,
   ) {
     try {
       return await this.subjectService.getDataWithPagination(
@@ -59,6 +60,7 @@ export class SubjectController {
         order,
         Number(page),
         Number(limit),
+        req.user,
       );
     } catch (err: any) {
       throw new InternalServerErrorException(err.message);
@@ -66,9 +68,9 @@ export class SubjectController {
   }
 
   @Get('all')
-  async getAllData() {
+  async getAllData(@Req() req: any) {
     try {
-      return await this.subjectService.getDataOnly();
+      return await this.subjectService.getDataOnly(req.user);
     } catch (err: any) {
       throw new InternalServerErrorException(err.message);
     }
@@ -92,10 +94,10 @@ export class SubjectController {
   }
 
   @Delete(':id')
-  async softDelete(@Param('id') id: string, @Body('deletedBy') deletedBy: string) {
+  async softDelete(@Param('id') id: string, @Req() req: any) {
     const subject = await this.subjectService.findById(id);
     if (!subject) throw new NotFoundException(`Subject with ID ${id} not found`);
 
-    return await this.subjectService.softDelete(id, deletedBy);
+    return await this.subjectService.softDelete(id, req.user?.sub);
   }
 }

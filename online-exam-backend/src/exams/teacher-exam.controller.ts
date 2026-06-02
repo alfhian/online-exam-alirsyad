@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Body,
+  Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { TeacherExamsService } from './teacher-exam.service';
@@ -28,6 +29,7 @@ export class TeacherExamsController {
     @Query('order') order: 'asc' | 'desc' = 'desc',
     @Query('page') page = '1',
     @Query('limit') limit = '10',
+    @Req() req: any,
   ) {
     const pageNumber = Number(page);
     const limitNumber = Number(limit);
@@ -39,6 +41,7 @@ export class TeacherExamsController {
         order,
         pageNumber,
         limitNumber,
+        req.user,
       );
     } catch (err: any) {
       if (err instanceof HttpException) throw err;
@@ -51,9 +54,9 @@ export class TeacherExamsController {
    * Detail jawaban ujian siswa
    */
   @Get('submission/:submissionId')
-  async getSubmissionDetail(@Param('submissionId') submissionId: string) {
+  async getSubmissionDetail(@Param('submissionId') submissionId: string, @Req() req: any) {
     try {
-      return await this.teacherExamService.getSubmissionDetail(submissionId);
+      return await this.teacherExamService.getSubmissionDetail(submissionId, req.user);
     } catch (err: any) {
       if (err instanceof HttpException) throw err;
       throw new InternalServerErrorException(err.message);
@@ -71,12 +74,14 @@ export class TeacherExamsController {
       scores: { question_id: string; is_correct: boolean }[];
       totalScore?: number;
     },
+    @Req() req: any,
   ) {
     try {
       return await this.teacherExamService.updateSubmissionScore(
         submissionId,
         body.scores,
         body.totalScore,
+        req.user,
       );
     } catch (err: any) {
       if (err instanceof HttpException) throw err;
@@ -94,6 +99,7 @@ export class TeacherExamsController {
     @Query('search') search = '',
     @Query('page') page = '1',
     @Query('limit') limit = '10',
+    @Req() req: any,
   ) {
     const pageNumber = Number(page);
     const limitNumber = Number(limit);
@@ -104,6 +110,7 @@ export class TeacherExamsController {
         search,
         pageNumber,
         limitNumber,
+        req.user,
       );
     } catch (err: any) {
       if (err instanceof HttpException) throw err;

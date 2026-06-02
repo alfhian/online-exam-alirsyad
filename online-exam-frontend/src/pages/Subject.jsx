@@ -150,6 +150,28 @@ const Subjects = () => {
     }
   };
 
+  const handleDelete = async (id) => {
+    const result = await MySwal.fire({
+      title: "Hapus mata pelajaran?",
+      text: "Data akan disembunyikan dari daftar aktif.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Hapus",
+      cancelButtonText: "Batal",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      await api.delete(`/subjects/${id}`);
+      MySwal.fire("Berhasil!", "Mata pelajaran berhasil dihapus.", "success");
+      fetchData();
+    } catch (err) {
+      const msg = err.response?.data?.message || "Gagal menghapus mata pelajaran.";
+      MySwal.fire("Gagal!", msg, "error");
+    }
+  };
+
   return (
     <Sidebar>
       <div className="module-shell font-poppins">
@@ -197,6 +219,7 @@ const Subjects = () => {
                   searchParams={searchParams}
                   setSearchParams={setSearchParams}
                   onEdit={handleEdit}
+                  onDelete={handleDelete}
                 />
               </div>
 

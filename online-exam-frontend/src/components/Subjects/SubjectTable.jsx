@@ -2,7 +2,7 @@ import { HiChevronUp, HiChevronDown, HiSelector } from "react-icons/hi";
 import ActionMenu from "../ActionMenu";
 import PropTypes from "prop-types";
 
-const SubjectTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit }) => {
+const SubjectTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit, onDelete }) => {
   const sort = searchParams.get("sort") || "name";
   const order = searchParams.get("order") || "asc";
   const page = Number(searchParams.get("page")) || 1;
@@ -85,7 +85,7 @@ const SubjectTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit }
                     {subject.description || "-"}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <ActionMenu itemId={subject.id} onEdit={onEdit} menu="subjects" />
+                    <ActionMenu itemId={subject.id} onEdit={onEdit} onDelete={onDelete} menu="subjects" />
                   </td>
                 </tr>
               ))
@@ -126,7 +126,7 @@ const SubjectTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit }
                   </div>
                 </div>
                 <div className="absolute top-0 right-0">
-                  <ActionMenu itemId={subject.id} onEdit={onEdit} menu="subjects" />
+                  <ActionMenu itemId={subject.id} onEdit={onEdit} onDelete={onDelete} menu="subjects" />
                 </div>
               </div>
 
@@ -160,6 +160,7 @@ SubjectTable.propTypes = {
   searchParams: PropTypes.object.isRequired,
   setSearchParams: PropTypes.func.isRequired,
   onEdit: PropTypes.func,
+  onDelete: PropTypes.func,
 };
 
 export default SubjectTable;

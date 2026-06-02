@@ -38,7 +38,8 @@ export class SubjectService {
     sort: string,
     order: 'asc' | 'desc',
     page: number,
-    limit: number
+    limit: number,
+    user?: any,
   ): Promise<{ data: Subject[]; meta: any }> {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
@@ -52,6 +53,10 @@ export class SubjectService {
       if (search?.trim()) {
         const keyword = search.trim().toLowerCase();
         query = query.or(`name.ilike.%${keyword}%,description.ilike.%${keyword}%,class_id.ilike.%${keyword}%`);
+      }
+
+      if (String(user?.role || '').toUpperCase() === 'GURU') {
+        query = query.eq('teacher_id', user.sub);
       }
 
       query = query.order(sort, { ascending: order === 'asc' }).range(from, to);
@@ -74,12 +79,18 @@ export class SubjectService {
     }
   }
 
-  async getDataOnly(): Promise<{ data: Subject[]; meta: any }> {
+  async getDataOnly(user?: any): Promise<{ data: Subject[]; meta: any }> {
     try {
-      const { data, error } = await this.supabase
+      let query = this.supabase
         .from('subjects')
         .select('*, teacher:teacher_id(name)')
-        .is('deleted_at', null)
+        .is('deleted_at', null);
+
+      if (String(user?.role || '').toUpperCase() === 'GURU') {
+        query = query.eq('teacher_id', user.sub);
+      }
+
+      const { data, error } = await query
         .order('class_id', { ascending: true })
         .order('name', { ascending: true });
 

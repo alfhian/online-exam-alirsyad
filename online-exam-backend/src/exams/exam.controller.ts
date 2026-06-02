@@ -66,8 +66,9 @@ export class ExamController {
     @Query('order') order: 'asc' | 'desc' = 'asc',
     @Query('page') page = '1',
     @Query('limit') limit = '10',
+    @Req() req: any,
   ) {
-    return this.examService.getDataWithPagination(search, sort, order, Number(page), Number(limit));
+    return this.examService.getDataWithPagination(search, sort, order, Number(page), Number(limit), req.user);
   }
 
   @Get('today')
@@ -131,10 +132,10 @@ export class ExamController {
   }
 
   @Delete(':id')
-  async softDelete(@Param('id') id: string, @Body('deletedBy') deletedBy: string) {
+  async softDelete(@Param('id') id: string, @Req() req: any) {
     const { data, error } = await this.supabase
       .from('exams')
-      .update({ deleted_at: new Date(), deleted_by: deletedBy })
+      .update({ deleted_at: new Date(), deleted_by: req.user?.sub })
       .eq('id', id)
       .select('*')
       .single();
