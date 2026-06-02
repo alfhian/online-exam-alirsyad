@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
-import axios from "axios";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import ScoringQuestionCard from "../components/Exams/ScoringQuestionCard";
 import formatDateOnly from "../utils/formatDateOnly";
 import { FaRegEdit } from "react-icons/fa";
 import api from "../api/axiosConfig";
-import RichTextRenderer from "../components/RichTextRenderer";
+import LoadingButton from "../components/LoadingButton";
 
 const MySwal = withReactContent(Swal);
 
@@ -17,6 +16,7 @@ const TeacherExamScoring = () => {
   const [submission, setSubmission] = useState(null);
   const [scoring, setScoring] = useState({});
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
 
   const fetchSubmissionDetail = async () => {
@@ -61,7 +61,9 @@ const TeacherExamScoring = () => {
   };
 
   const handleSaveScore = async () => {
+    if (saving) return;
     try {
+      setSaving(true);
       const questions = submission.questions || [];
       
       // Validasi: Semua soal harus diberi nilai (true/false)
@@ -140,6 +142,8 @@ const TeacherExamScoring = () => {
         err.response?.data?.error ||
         "Gagal menyimpan nilai.";
       MySwal.fire("Error", message, "error");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -218,12 +222,14 @@ const TeacherExamScoring = () => {
 
             {/* Tombol Simpan */}
             <div className="flex justify-end">
-              <button
+              <LoadingButton
                 onClick={handleSaveScore}
+                loading={saving}
+                loadingText="Menyimpan nilai..."
                 className="px-6 py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors duration-200 shadow-sm"
               >
                 Simpan & Selesaikan Penilaian
-              </button>
+              </LoadingButton>
             </div>
           </div>
         )}

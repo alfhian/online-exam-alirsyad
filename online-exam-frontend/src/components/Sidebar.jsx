@@ -10,6 +10,7 @@ const Sidebar = ({ children }) => {
   const [isOpen, setIsOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -40,6 +41,7 @@ const Sidebar = ({ children }) => {
   const toggleMobileSidebar = () => setIsMobileOpen(!isMobileOpen);
 
   const handleLogout = async () => {
+    if (loggingOut) return;
     const confirm = await Swal.fire({
       title: "Konfirmasi Logout",
       text: "Apakah Anda yakin ingin keluar dari sistem?",
@@ -60,6 +62,7 @@ const Sidebar = ({ children }) => {
     if (!confirm.isConfirmed) return;
 
     try {
+      setLoggingOut(true);
       const now = Date.now() / 1000;
       if (decoded.exp < now) {
         localStorage.removeItem("token");
@@ -85,6 +88,8 @@ const Sidebar = ({ children }) => {
       console.error("Logout failed:", err);
       localStorage.removeItem("token");
       navigate("/");
+    } finally {
+      setLoggingOut(false);
     }
   };
 
@@ -171,10 +176,11 @@ const Sidebar = ({ children }) => {
           
           <button
             onClick={handleLogout}
+            disabled={loggingOut}
             className="flex items-center gap-2.5 w-full h-9 px-3 rounded-lg text-[11px] font-semibold text-rose-400 hover:text-white hover:bg-rose-500 transition-all duration-300 group"
           >
-            <FaSignOutAlt className="text-sm transition-transform duration-300 group-hover:-translate-x-0.5" />
-            {(isOpen || isMobileOpen) && <span>Logout</span>}
+            <FaSignOutAlt className={`text-sm transition-transform duration-300 group-hover:-translate-x-0.5 ${loggingOut ? "animate-pulse" : ""}`} />
+            {(isOpen || isMobileOpen) && <span>{loggingOut ? "Keluar..." : "Logout"}</span>}
           </button>
         </div>
       </aside>

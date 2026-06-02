@@ -20,6 +20,7 @@ import ExamTypeSelect from "../components/DropdownExamType";
 import { format } from "date-fns";
 import { FaClipboardList } from "react-icons/fa";
 import api from "../api/axiosConfig";
+import LoadingButton from "../components/LoadingButton";
 
 const MySwal = withReactContent(Swal);
 const initialExamForm = {
@@ -38,6 +39,9 @@ const Exam = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [meta, setMeta] = useState({ total: 0 });
+  const [saving, setSaving] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const search = searchParams.get("search") || "";
   const sort = searchParams.get("sort") || "title";
   const order = searchParams.get("order") || "asc";
@@ -81,12 +85,14 @@ const Exam = () => {
   }, [search, sort, order, page]);
 
   const handleSubmit = async () => {
+    if (saving) return;
     if (!formData.title || !formData.subject_id || !formData.type || !formData.date || !formData.duration) {
       MySwal.fire("Gagal!", "Silakan lengkapi semua isian wajib (Judul, Mata Pelajaran, Jenis, Tanggal, dan Durasi)!", "error");
       return;
     }
 
     try {
+      setSaving(true);
       await api.post("/exams", formData, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
@@ -107,6 +113,8 @@ const Exam = () => {
         text: msg,
         icon: "error",
       });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -137,12 +145,14 @@ const Exam = () => {
   };
 
   const handleUpdate = async () => {
+    if (updating) return;
     if (!formData.title || !formData.subject_id || !formData.type || !formData.date || !formData.duration) {
       MySwal.fire("Gagal!", "Silakan lengkapi semua isian wajib!", "error");
       return;
     }
 
     try {
+      setUpdating(true);
       await api.put(
         `/exams/${selectedId}`,
         formData,
@@ -165,10 +175,13 @@ const Exam = () => {
         text: msg,
         icon: "error",
       });
+    } finally {
+      setUpdating(false);
     }
   };
 
   const handleDelete = async (id) => {
+    if (deletingId) return;
     const result = await MySwal.fire({
       title: "Hapus ujian?",
       text: "Ujian akan disembunyikan dari daftar aktif.",
@@ -181,12 +194,15 @@ const Exam = () => {
     if (!result.isConfirmed) return;
 
     try {
+      setDeletingId(id);
       await api.delete(`/exams/${id}`);
       MySwal.fire("Berhasil!", "Ujian berhasil dihapus.", "success");
       fetchExams();
     } catch (err) {
       const msg = err.response?.data?.message || "Tidak dapat menghapus ujian.";
       MySwal.fire("Gagal!", msg, "error");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -378,16 +394,19 @@ const Exam = () => {
                           setEditModalOpen(false);
                           resetForm();
                         }}
+                        disabled={saving || updating}
                         className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg"
                       >
                         Batal
                       </button>
-                      <button
+                      <LoadingButton
                         onClick={showModal ? handleSubmit : handleUpdate}
+                        loading={showModal ? saving : updating}
+                        loadingText={showModal ? "Menyimpan..." : "Memperbarui..."}
                         className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg"
                       >
                         {showModal ? "Simpan" : "Perbarui"}
-                      </button>
+                      </LoadingButton>
                     </div>
                   </DialogPanel>
                 </TransitionChild>

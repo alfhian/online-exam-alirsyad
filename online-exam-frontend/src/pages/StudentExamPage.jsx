@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
 import RichTextRenderer from "../components/RichTextRenderer";
+import LoadingButton from "../components/LoadingButton";
 
 /* ---------------- Helper ---------------- */
 
@@ -49,6 +50,7 @@ const StudentExamPage = () => {
   const [sessionId, setSessionId] = useState(null);
   const [timeLeft, setTimeLeft] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [starting, setStarting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [violationCount, setViolationCount] = useState(0);
 
@@ -318,7 +320,9 @@ const StudentExamPage = () => {
   };
 
   const handleStart = async () => {
+    if (starting) return;
     try {
+      setStarting(true);
       const { data } = await axios.post(
         `${import.meta.env.VITE_API_BASE_URL}/exam-sessions/${examId}/start`,
         {},
@@ -342,6 +346,8 @@ const StudentExamPage = () => {
     } catch (err) {
       console.error("Gagal mulai ujian:", err);
       Swal.fire("Error", "Tidak bisa memulai sesi ujian", "error");
+    } finally {
+      setStarting(false);
     }
   };
 
@@ -477,12 +483,14 @@ const StudentExamPage = () => {
             </p>
           </div>
 
-          <button
+          <LoadingButton
             onClick={handleStart}
+            loading={starting}
+            loadingText="Memulai ujian..."
             className="px-8 py-3 bg-blue-600 text-white text-lg font-semibold rounded-xl shadow-md hover:bg-blue-700 transition-all duration-200 transform hover:scale-105"
           >
             Mulai Ujian Sekarang 🎯
-          </button>
+          </LoadingButton>
 
           <p className="mt-6 text-sm text-gray-500">
             Semoga sukses! Fokus, tenang, dan tunjukkan kemampuan terbaikmu 💪
@@ -602,13 +610,14 @@ const StudentExamPage = () => {
 
       {/* Tombol Submit */}
       <footer className="p-4 bg-white shadow-inner flex justify-end items-center sticky bottom-0">
-        <button
+        <LoadingButton
           onClick={handleSubmit}
-          disabled={submitting}
+          loading={submitting}
+          loadingText="Mengirim Jawaban..."
           className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold shadow hover:bg-blue-700 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {submitting ? "Mengirim Jawaban..." : "Kirim Jawaban 📝"}
-        </button>
+          Kirim Jawaban 📝
+        </LoadingButton>
       </footer>
     </div>
   );

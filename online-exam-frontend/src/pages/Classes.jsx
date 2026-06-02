@@ -4,6 +4,7 @@ import Sidebar from "../components/Sidebar";
 import api from "../api/axiosConfig";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
+import LoadingButton from "../components/LoadingButton";
 
 const MySwal = withReactContent(Swal);
 const initialForm = { id: "", name: "", grade: "" };
@@ -12,6 +13,8 @@ export default function Classes() {
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const fetchClasses = async () => {
     setLoading(true);
@@ -36,22 +39,27 @@ export default function Classes() {
   };
 
   const handleSubmit = async () => {
+    if (saving) return;
     if (!form.id || !form.name) {
       MySwal.fire("Gagal!", "Kode dan nama kelas wajib diisi.", "warning");
       return;
     }
 
     try {
+      setSaving(true);
       await api.post("/classes", form);
       setForm(initialForm);
       MySwal.fire("Berhasil!", "Kelas berhasil ditambahkan.", "success");
       fetchClasses();
     } catch (err) {
       MySwal.fire("Gagal!", err.response?.data?.message || "Gagal menambah kelas.", "error");
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
+    if (deletingId) return;
     const result = await MySwal.fire({
       title: "Hapus kelas?",
       text: "Kelas hanya bisa dihapus jika belum dipakai mata pelajaran aktif.",
@@ -64,11 +72,14 @@ export default function Classes() {
     if (!result.isConfirmed) return;
 
     try {
+      setDeletingId(id);
       await api.delete(`/classes/${id}`);
       MySwal.fire("Berhasil!", "Kelas berhasil dihapus.", "success");
       fetchClasses();
     } catch (err) {
       MySwal.fire("Gagal!", err.response?.data?.message || "Gagal menghapus kelas.", "error");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -119,12 +130,14 @@ export default function Classes() {
                   className="mt-1 w-full px-3 py-2"
                 />
               </div>
-              <button
+              <LoadingButton
                 onClick={handleSubmit}
+                loading={saving}
+                loadingText="Menyimpan..."
                 className="w-full rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700"
               >
                 Simpan Kelas
-              </button>
+              </LoadingButton>
             </div>
           </div>
 
@@ -145,12 +158,15 @@ export default function Classes() {
                       <p className="text-sm font-bold text-slate-800">{item.name}</p>
                       <p className="text-xs text-slate-400">{item.id} {item.grade ? `- Tingkat ${item.grade}` : ""}</p>
                     </div>
-                    <button
+                    <LoadingButton
                       onClick={() => handleDelete(item.id)}
+                      loading={deletingId === item.id}
+                      loadingText="Menghapus..."
+                      disabled={Boolean(deletingId)}
                       className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100"
                     >
                       Hapus
-                    </button>
+                    </LoadingButton>
                   </div>
                 ))}
               </div>

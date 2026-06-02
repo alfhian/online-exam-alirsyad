@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
+import LoadingButton from "./LoadingButton";
 
 export default function StudentsModal({ isOpen, onClose, examId }) {
   const MySwal = withReactContent(Swal);
@@ -14,6 +15,7 @@ export default function StudentsModal({ isOpen, onClose, examId }) {
     total: 0,
   });
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const token = localStorage.getItem("token");
 
@@ -62,7 +64,9 @@ export default function StudentsModal({ isOpen, onClose, examId }) {
   };
 
   const handleSave = async () => {
+    if (saving) return;
     try {
+      setSaving(true);
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/exams/${examId}/students`, {
         method: "POST",
         headers: {
@@ -72,6 +76,8 @@ export default function StudentsModal({ isOpen, onClose, examId }) {
         body: JSON.stringify({ studentIds: selectedStudents }),
       });
 
+      if (!res.ok) throw new Error("Failed to save students");
+
       MySwal.fire({
         icon: "success",
         title: "Berhasil!",
@@ -79,11 +85,12 @@ export default function StudentsModal({ isOpen, onClose, examId }) {
         timer: 1500,
         showConfirmButton: false,
       });
-
-      if (!res.ok) throw new Error("Failed to save students");
       onClose();
     } catch (err) {
       console.error(err);
+      MySwal.fire("Gagal!", "Data siswa gagal disimpan.", "error");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -226,15 +233,18 @@ export default function StudentsModal({ isOpen, onClose, examId }) {
                   <button
                     className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all"
                     onClick={onClose}
+                    disabled={saving}
                   >
                     Batal
                   </button>
-                  <button
+                  <LoadingButton
                     className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all"
                     onClick={handleSave}
+                    loading={saving}
+                    loadingText="Menyimpan..."
                   >
                     Simpan
-                  </button>
+                  </LoadingButton>
                 </div>
               </Dialog.Panel>
             </Transition.Child>

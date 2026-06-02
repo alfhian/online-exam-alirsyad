@@ -18,6 +18,7 @@ import {
 import ClassSelect from "../components/DropdownClass";
 import TeacherSelect from "../components/DropdownTeacher";
 import api from "../api/axiosConfig";
+import LoadingButton from "../components/LoadingButton";
 
 const MySwal = withReactContent(Swal);
 const initialSubjectForm = {
@@ -36,6 +37,9 @@ const Subjects = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [meta, setMeta] = useState({ total: 0 });
+  const [saving, setSaving] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const search = searchParams.get("search") || "";
   const sort = searchParams.get("sort") || "name";
   const order = searchParams.get("order") || "asc";
@@ -77,12 +81,14 @@ const Subjects = () => {
   }, [search, sort, order, page]);
 
   const handleSubmit = async () => {
+    if (saving) return;
     if (!formData.name || !formData.class_id || !formData.teacher_id) {
       MySwal.fire("Gagal!", "Silakan isi Nama, Kelas, dan Guru Pengampu!", "error");
       return;
     }
 
     try {
+      setSaving(true);
       await api.post("/subjects", formData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -97,6 +103,8 @@ const Subjects = () => {
       const msg = err.response?.data?.message || "Gagal menambah Mata Pelajaran.";
       MySwal.fire("Gagal!", msg, "error");
       console.error("Failed to add subject:", err);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -124,12 +132,14 @@ const Subjects = () => {
   };
 
   const handleUpdate = async () => {
+    if (updating) return;
     if (!formData.name || !formData.class_id || !formData.teacher_id) {
       MySwal.fire("Gagal!", "Silakan isi Nama, Kelas, dan Guru Pengampu!", "error");
       return;
     }
 
     try {
+      setUpdating(true);
       await api.put(
         `/subjects/${selectedId}`,
         { ...formData },
@@ -147,10 +157,13 @@ const Subjects = () => {
       const msg = err.response?.data?.message || "Gagal memperbarui Mata Pelajaran.";
       MySwal.fire("Gagal!", msg, "error");
       console.error("Failed to update subject:", err);
+    } finally {
+      setUpdating(false);
     }
   };
 
   const handleDelete = async (id) => {
+    if (deletingId) return;
     const result = await MySwal.fire({
       title: "Hapus mata pelajaran?",
       text: "Data akan disembunyikan dari daftar aktif.",
@@ -163,12 +176,15 @@ const Subjects = () => {
     if (!result.isConfirmed) return;
 
     try {
+      setDeletingId(id);
       await api.delete(`/subjects/${id}`);
       MySwal.fire("Berhasil!", "Mata pelajaran berhasil dihapus.", "success");
       fetchData();
     } catch (err) {
       const msg = err.response?.data?.message || "Gagal menghapus mata pelajaran.";
       MySwal.fire("Gagal!", msg, "error");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -335,16 +351,19 @@ const Subjects = () => {
                     <div className="mt-6 flex justify-end space-x-2">
                       <button
                         onClick={() => { setShowModal(false); resetForm(); }}
+                        disabled={saving}
                         className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                       >
                         Batal
                       </button>
-                      <button
+                      <LoadingButton
                         onClick={handleSubmit}
+                        loading={saving}
+                        loadingText="Menyimpan..."
                         className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
                       >
                         Simpan
-                      </button>
+                      </LoadingButton>
                     </div>
                   </DialogPanel>
                 </TransitionChild>
@@ -442,16 +461,19 @@ const Subjects = () => {
                     <div className="mt-6 flex justify-end space-x-2">
                       <button
                         onClick={() => { setEditModalOpen(false); resetForm(); }}
+                        disabled={updating}
                         className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                       >
                         Batal
                       </button>
-                      <button
+                      <LoadingButton
                         onClick={handleUpdate}
+                        loading={updating}
+                        loadingText="Memperbarui..."
                         className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
                       >
                         Update
-                      </button>
+                      </LoadingButton>
                     </div>
                   </DialogPanel>
                 </TransitionChild>

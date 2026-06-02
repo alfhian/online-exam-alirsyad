@@ -29,6 +29,7 @@ export default function ActionMenu({
 
   // ✅ Mulai ujian siswa
   const handleStartExam = async (examId) => {
+    if (loading) return;
     try {
       setLoading(true);
       const { data } = await api.get(`/exam-submissions/${examId}/me`);
@@ -61,14 +62,15 @@ export default function ActionMenu({
   const handleViewDetail = () => navigate(`/exam-submissions/${itemId}`);
   const handleScoring = () => navigate(`/teacher-exam/submission/${itemId}`);
 
-  const ActionItem = ({ onClick, icon: Icon, label }) => (
+  const ActionItem = ({ onClick, icon: Icon, label, disabled = false }) => (
     <MenuItem>
       {({ active }) => (
         <button
           onClick={onClick}
+          disabled={disabled}
           className={`${
             active ? "bg-slate-50 text-emerald-600" : "text-slate-600"
-          } group flex w-full items-center gap-2.5 px-3 py-1.5 text-[11px] font-medium transition-colors`}
+          } group flex w-full items-center gap-2.5 px-3 py-1.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60`}
         >
           <Icon className={`h-3.5 w-3.5 transition-transform ${active ? 'scale-110' : ''}`} />
           {label}
@@ -131,6 +133,7 @@ export default function ActionMenu({
                   onClick={() => handleStartExam(itemId)} 
                   icon={PlayIcon} 
                   label={loading ? "Loading..." : "Mulai Ujian"} 
+                  disabled={loading}
                 />
               )}
 

@@ -16,6 +16,7 @@ import {
 } from "@headlessui/react";
 import { FaQuestionCircle } from "react-icons/fa";
 import api from "../api/axiosConfig";
+import LoadingButton from "../components/LoadingButton";
 
 const MySwal = withReactContent(Swal);
 
@@ -72,6 +73,9 @@ const Questionnaire = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [meta, setMeta] = useState({ total: 0 });
+  const [saving, setSaving] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const search = searchParams.get("search") || "";
   const sort = searchParams.get("sort") || "question";
   const order = searchParams.get("order") || "asc";
@@ -146,6 +150,7 @@ const Questionnaire = () => {
   }, [search, sort, order, page]);
 
   const handleSubmit = async () => {
+    if (saving) return;
     if (!formData.question) {
       MySwal.fire("Gagal!", "Pertanyaan tidak boleh kosong!", "error");
       return;
@@ -167,6 +172,7 @@ const Questionnaire = () => {
     }
 
     try {
+      setSaving(true);
       await api.post(`/exams/${examId}/questionnaires`, buildQuestionnairePayload(formData));
       setShowModal(false);
       resetForm();
@@ -185,6 +191,8 @@ const Questionnaire = () => {
         text: msg,
         icon: "error",
       });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -216,6 +224,7 @@ const Questionnaire = () => {
   };
 
   const handleUpdate = async () => {
+    if (updating) return;
     if (!formData.question) {
       MySwal.fire("Gagal!", "Pertanyaan tidak boleh kosong!", "error");
       return;
@@ -237,6 +246,7 @@ const Questionnaire = () => {
     }
 
     try {
+      setUpdating(true);
       await api.put(`/exams/${examId}/questionnaires/${selectedId}`, buildQuestionnairePayload(formData));
       setEditModalOpen(false);
       resetForm();
@@ -255,10 +265,13 @@ const Questionnaire = () => {
         text: msg,
         icon: "error",
       });
+    } finally {
+      setUpdating(false);
     }
   };
 
   const handleDelete = async (id) => {
+    if (deletingId) return;
     const result = await MySwal.fire({
       title: "Hapus soal?",
       text: "Soal akan disembunyikan dari daftar pertanyaan aktif.",
@@ -271,12 +284,15 @@ const Questionnaire = () => {
     if (!result.isConfirmed) return;
 
     try {
+      setDeletingId(id);
       await api.delete(`/exams/${examId}/questionnaires/${id}`);
       MySwal.fire("Berhasil!", "Soal ujian berhasil dihapus.", "success");
       fetchQuestionnaires();
     } catch (err) {
       const msg = err.response?.data?.message || "Tidak dapat menghapus soal.";
       MySwal.fire("Gagal!", msg, "error");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -522,16 +538,19 @@ const Questionnaire = () => {
                           setShowModal(false);
                           setEditModalOpen(false);
                         }}
+                        disabled={saving || updating}
                         className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg"
                       >
                         Batal
                       </button>
-                      <button
+                      <LoadingButton
                         onClick={showModal ? handleSubmit : handleUpdate}
+                        loading={showModal ? saving : updating}
+                        loadingText={showModal ? "Menyimpan..." : "Memperbarui..."}
                         className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg"
                       >
                         {showModal ? "Simpan" : "Perbarui"}
-                      </button>
+                      </LoadingButton>
                     </div>
                   </DialogPanel>
                 </TransitionChild>

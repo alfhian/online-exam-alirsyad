@@ -21,6 +21,7 @@ import {
 } from "@headlessui/react";
 import { jwtDecode } from "jwt-decode";
 import api from "../api/axiosConfig";
+import LoadingButton from "../components/LoadingButton";
 
 const MySwal = withReactContent(Swal);
 const initialFormData = {
@@ -48,6 +49,12 @@ const Users = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editSiswaModalOpen, setEditSiswaModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [updatingSiswa, setUpdatingSiswa] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [generatingToken, setGeneratingToken] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const search = searchParams.get("search") || "";
   const sort = searchParams.get("sort") || "name";
@@ -94,12 +101,14 @@ const Users = () => {
 
   // Submit user
   const handleSubmit = async () => {
+    if (saving) return;
     if (!formData.userid || !formData.name || !formData.role) {
       MySwal.fire("Gagal!", "Silakan lengkapi isian wajib (NIK/NIS, Nama, dan Role)!", "error");
       return;
     }
 
     try {
+      setSaving(true);
       await axios.post(`${import.meta.env.VITE_API_BASE_URL}/users`, formData, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -109,6 +118,8 @@ const Users = () => {
       fetchUsers();
     } catch (err) {
       MySwal.fire("Gagal!", "Gagal menambah user.", "error");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -148,7 +159,9 @@ const Users = () => {
   };
 
   const handleUpdate = async () => {
+    if (updating) return;
     try {
+      setUpdating(true);
       await api.put(
         `/users/${selectedUserId}`,
         { ...formData, updated_at: new Date().toISOString() },
@@ -160,10 +173,13 @@ const Users = () => {
       fetchUsers();
     } catch (err) {
       MySwal.fire("Gagal!", "Gagal memperbarui user.", "error");
+    } finally {
+      setUpdating(false);
     }
   };
 
   const handleDelete = async (id) => {
+    if (deletingId) return;
     MySwal.fire({
       title: "Apakah Anda yakin?",
       text: "User akan dihapus (soft delete).",
@@ -176,6 +192,7 @@ const Users = () => {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
+          setDeletingId(id);
           await api.post(`/users/${id}/delete`, {}, {
             headers: { Authorization: `Bearer ${token}` },
           });
@@ -183,12 +200,15 @@ const Users = () => {
           fetchUsers();
         } catch (err) {
           MySwal.fire("Gagal!", "Gagal menghapus user.", "error");
+        } finally {
+          setDeletingId(null);
         }
       }
     });
   };
 
   const handleGenerateRandomToken = async () => {
+    if (generatingToken) return;
     try {
       MySwal.fire({
         title: "Apakah Anda yakin?",
@@ -200,6 +220,7 @@ const Users = () => {
         reverseButtons: true,
       }).then(async (result) => {
         if (result.isConfirmed) {
+          setGeneratingToken(true);
           const res = await api.post(`/users/generate-password-siswa`, {}, {
             headers: { Authorization: `Bearer ${token}` },
           });
@@ -209,8 +230,11 @@ const Users = () => {
           
           MySwal.fire("Berhasil!", "Token berhasil diacak menjadi "+res.data.password, "success");
         }
+      }).finally(() => {
+        setGeneratingToken(false);
       });
     } catch (err) {
+      setGeneratingToken(false);
       MySwal.fire("Gagal!", "Gagal mengacak token.", "error");
     }
   };
@@ -328,9 +352,14 @@ const Users = () => {
                 <button onClick={() => { setShowModal(false); resetForm(); }} className="px-4 py-2 bg-gray-200 rounded-lg">
                   Batal
                 </button>
-                <button onClick={handleSubmit} className="px-4 py-2 bg-emerald-600 text-white rounded-lg">
+                <LoadingButton
+                  onClick={handleSubmit}
+                  loading={saving}
+                  loadingText="Menyimpan..."
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg"
+                >
                   Simpan
-                </button>
+                </LoadingButton>
               </div>
             </DialogPanel>
           </div>
@@ -400,9 +429,14 @@ const Users = () => {
                 <button onClick={() => { setEditModalOpen(false); resetForm(); }} className="px-4 py-2 bg-gray-200 rounded-lg">
                   Batal
                 </button>
-                <button onClick={handleUpdate} className="px-4 py-2 bg-emerald-600 text-white rounded-lg">
+                <LoadingButton
+                  onClick={handleUpdate}
+                  loading={updating}
+                  loadingText="Memperbarui..."
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg"
+                >
                   Update
-                </button>
+                </LoadingButton>
               </div>
             </DialogPanel>
           </div>
@@ -501,9 +535,11 @@ const Users = () => {
                 >
                   Batal
                 </button>
-                <button
+                <LoadingButton
                   onClick={async () => {
+                    if (updatingSiswa) return;
                     try {
+                      setUpdatingSiswa(true);
                       await api.put(
                         `/users/${selectedUserId}`,
                         { ...formData, updated_at: new Date().toISOString() },
@@ -515,12 +551,16 @@ const Users = () => {
                       fetchUsers();
                     } catch (err) {
                       MySwal.fire("Gagal!", "Gagal memperbarui data siswa.", "error");
+                    } finally {
+                      setUpdatingSiswa(false);
                     }
                   }}
+                  loading={updatingSiswa}
+                  loadingText="Memperbarui..."
                   className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
                 >
                   Update
-                </button>
+                </LoadingButton>
               </div>
             </DialogPanel>
           </div>
@@ -553,6 +593,7 @@ const Users = () => {
   };
 
   const handleImportExcel = async (e) => {
+    if (importing) return;
     const file = e.target.files[0];
     if (!file) return;
 
@@ -560,6 +601,7 @@ const Users = () => {
     formData.append("file", file);
 
     try {
+      setImporting(true);
       MySwal.fire({
         title: "Sedang mengimpor...",
         didOpen: () => MySwal.showLoading(),
@@ -580,6 +622,7 @@ const Users = () => {
       console.error(err);
       MySwal.fire("Gagal!", err.response?.data?.message || "Gagal mengimpor data.", "error");
     } finally {
+      setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -619,12 +662,14 @@ const Users = () => {
                     className="hidden"
                     ref={fileInputRef}
                   />
-                  <button
+                  <LoadingButton
                     onClick={() => fileInputRef.current?.click()}
+                    loading={importing}
+                    loadingText="Mengimpor..."
                     className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-lg font-medium hover:bg-emerald-100 transition-colors"
                   >
                     Pilih File Excel
-                  </button>
+                  </LoadingButton>
                   <p className="text-xs text-gray-400 mt-2">Format: .xlsx atau .xls</p>
                 </div>
               </div>
@@ -632,6 +677,7 @@ const Users = () => {
               <div className="mt-6 flex justify-end">
                 <button
                   onClick={() => setImportModalOpen(false)}
+                  disabled={importing}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
                 >
                   Tutup
@@ -673,12 +719,14 @@ const Users = () => {
             >
               + Tambah User
             </button>
-            <button
+            <LoadingButton
               onClick={handleGenerateRandomToken}
+              loading={generatingToken}
+              loadingText="Mengacak..."
               className="module-action-btn bg-red-600 hover:bg-red-700 text-white transition-colors duration-200"
             >
               Acak Token
-            </button>
+            </LoadingButton>
           </div>
         </div>
 
