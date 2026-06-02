@@ -2,30 +2,24 @@ import { useEffect, useMemo, useState } from 'react';
 import Select from 'react-select';
 import api from '../api/axiosConfig';
 
-const fallbackOptions = [
-  { value: '10AK', label: 'Kelas 10 AK' },
-  { value: '10TKJ', label: 'Kelas 10 TKJ' },
-  { value: '10AP', label: 'Kelas 10 AP' },
-  { value: '11AK', label: 'Kelas 11 AK' },
-  { value: '11TKJ', label: 'Kelas 11 TKJ' },
-  { value: '11AP', label: 'Kelas 11 AP' },
-  { value: '12AK', label: 'Kelas 12 AK' },
-  { value: '12TKJ', label: 'Kelas 12 TKJ' },
-  { value: '12AP', label: 'Kelas 12 AP' },
-];
-
 export default function ClassSelect({ classes, setClasses }) {
   const [classRows, setClassRows] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
+    setLoading(true);
     api.get('/classes/all')
       .then((res) => {
-        if (isMounted) setClassRows(res.data?.data || []);
+        const rows = Array.isArray(res.data) ? res.data : res.data?.data;
+        if (isMounted) setClassRows(Array.isArray(rows) ? rows : []);
       })
       .catch(() => {
         if (isMounted) setClassRows([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
       });
 
     return () => {
@@ -34,10 +28,10 @@ export default function ClassSelect({ classes, setClasses }) {
   }, []);
 
   const options = useMemo(() => {
-    if (!classRows.length) return fallbackOptions;
     return classRows.map((item) => ({
       value: item.id,
       label: item.name || item.id,
+      className: item.name || item.id,
     }));
   }, [classRows]);
 
@@ -45,11 +39,13 @@ export default function ClassSelect({ classes, setClasses }) {
     <Select
             options={options}
             value={options.find(opt => opt.value === classes)}
-            onChange={(opt) => setClasses(opt?.value ?? null)}
+            onChange={(opt) => setClasses(opt?.value ?? null, opt?.className ?? "")}
             placeholder="Pilih Kelas"
             className="w-full"
             classNamePrefix="app-select"
+            isLoading={loading}
             isClearable
+            noOptionsMessage={() => loading ? "Memuat kelas..." : "Belum ada data kelas"}
     />
   );
 }

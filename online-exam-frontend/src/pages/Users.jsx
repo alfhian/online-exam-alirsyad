@@ -386,6 +386,19 @@ const Users = () => {
                   role={formData.role}
                   setRole={(v) => setFormData((p) => ({ ...p, role: v }))}
                 />
+                <ClassSelect
+                  classes={formData.class_id}
+                  setClasses={(v, name) =>
+                    setFormData((p) => ({ ...p, class_id: v, class_name: name || p.class_name }))
+                  }
+                />
+                <input
+                  name="class_name"
+                  value={formData.class_name || ""}
+                  onChange={handleInputChange}
+                  placeholder="Nomor / detail kelas"
+                  className="mt-1 w-full border px-3 py-2 rounded-lg"
+                />
                 <textarea
                   name="description"
                   value={formData.description}
@@ -468,8 +481,8 @@ const Users = () => {
                   <label className="block text-sm font-medium text-gray-700">Kelas</label>
                   <ClassSelect
                     classes={formData.class_id}
-                    setClasses={(v) =>
-                      setFormData((p) => ({ ...p, class_id: v }))
+                    setClasses={(v, name) =>
+                      setFormData((p) => ({ ...p, class_id: v, class_name: name || p.class_name }))
                     }
                   />
                 </div>
