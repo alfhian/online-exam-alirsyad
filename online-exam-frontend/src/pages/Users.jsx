@@ -284,23 +284,12 @@ const Users = () => {
                 {/* Kelas */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Kelas</label>
-                  <ClassSelect
-                    classes={formData.class_id}
-                    setClasses={(v, name) =>
-                      setFormData((p) => ({ ...p, class_id: v, class_name: name }))
-                    }
-                  />
-                </div>
-
-                {/* Nomor kelas */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Nomor Kelas</label>
-                  <input
-                    name="class_name"
-                    value={formData.class_name || ""}
-                    onChange={handleInputChange}
-                    className="mt-1 w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-emerald-400"
-                  />
+                <ClassSelect
+                  classes={formData.class_id}
+                  setClasses={(v, name) =>
+                    setFormData((p) => ({ ...p, class_id: v, class_name: name }))
+                  }
+                />
                 </div>
 
                 {/* Deskripsi */}
@@ -389,15 +378,8 @@ const Users = () => {
                 <ClassSelect
                   classes={formData.class_id}
                   setClasses={(v, name) =>
-                    setFormData((p) => ({ ...p, class_id: v, class_name: name || p.class_name }))
+                    setFormData((p) => ({ ...p, class_id: v, class_name: name }))
                   }
-                />
-                <input
-                  name="class_name"
-                  value={formData.class_name || ""}
-                  onChange={handleInputChange}
-                  placeholder="Nomor / detail kelas"
-                  className="mt-1 w-full border px-3 py-2 rounded-lg"
                 />
                 <textarea
                   name="description"
@@ -482,19 +464,8 @@ const Users = () => {
                   <ClassSelect
                     classes={formData.class_id}
                     setClasses={(v, name) =>
-                      setFormData((p) => ({ ...p, class_id: v, class_name: name || p.class_name }))
+                      setFormData((p) => ({ ...p, class_id: v, class_name: name }))
                     }
-                  />
-                </div>
-
-                {/* Nomor Kelas */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Nomor Kelas</label>
-                  <input
-                    name="class_name"
-                    value={formData.class_name || ""}
-                    onChange={handleInputChange}
-                    className="mt-1 w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-emerald-400"
                   />
                 </div>
 
@@ -569,8 +540,7 @@ const Users = () => {
         nisn: "0012345678",
         gender: "L",
         role: "SISWA",
-        class_id: "11AK",
-        class_name: "11 AK 1",
+        class_id: "11AK1",
         password: "password123",
         description: "Keterangan tambahan",
       },

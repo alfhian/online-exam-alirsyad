@@ -27,6 +27,27 @@ export class UsersService {
     const defaultPassword = process.env.DEFAULT_NEW_USER_PASSWORD || '123456';
     const usersToInsert: any[] = [];
     const errors: string[] = [];
+    const classIds = [
+      ...new Set(
+        data
+          .map((row) => (row.class_id ? String(row.class_id).trim().toUpperCase() : ''))
+          .filter(Boolean),
+      ),
+    ];
+    const classNameById = new Map<string, string>();
+
+    if (classIds.length > 0) {
+      const { data: classes, error: classError } = await this.supabase
+        .from('classes')
+        .select('id, name')
+        .in('id', classIds)
+        .is('deleted_at', null);
+
+      if (classError) throw new InternalServerErrorException(classError.message);
+      (classes || []).forEach((classRow) => {
+        classNameById.set(String(classRow.id).toUpperCase(), classRow.name);
+      });
+    }
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -37,7 +58,6 @@ export class UsersService {
         gender,
         role,
         class_id,
-        class_name,
         password,
         description,
       } = row;
@@ -56,6 +76,8 @@ export class UsersService {
       const passwordSource = password || defaultPassword;
       const hashedPassword = bcrypt.hashSync(String(passwordSource), 10);
 
+      const normalizedClassId = class_id ? String(class_id).trim().toUpperCase() : null;
+
       usersToInsert.push({
         id: randomUUID(),
         userid: String(userid),
@@ -63,8 +85,8 @@ export class UsersService {
         nisn: nisn ? String(nisn) : '',
         gender: gender ? String(gender).toUpperCase() : 'L',
         role: String(role).toUpperCase(),
-        class_id: class_id || null,
-        class_name: class_name ? String(class_name) : '',
+        class_id: normalizedClassId,
+        class_name: normalizedClassId ? (classNameById.get(normalizedClassId) || normalizedClassId) : '',
         password: hashedPassword,
         description: description ? String(description) : '',
         created_by: createdBy,
