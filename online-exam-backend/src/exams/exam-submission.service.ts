@@ -13,6 +13,20 @@ export interface CreateExamSubmissionDto {
 export class ExamSubmissionService {
   constructor(private readonly supabase: SupabaseClient) {}
 
+  private hasSubmittedAnswers(value: unknown): boolean {
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed.length > 0 : Boolean(parsed);
+      } catch {
+        return value.trim().length > 0;
+      }
+    }
+
+    return Boolean(value && typeof value === 'object' && Object.keys(value as object).length > 0);
+  }
+
   private normalizeClassIdentifier(value?: string | null) {
     return String(value || '')
       .trim()
@@ -179,19 +193,19 @@ export class ExamSubmissionService {
 
     await this.assertStudentCanSubmitExam(exam_id, student_id);
 
-    // Check existing submission
-    const { count, error: existingError } = await this.supabase
+    const { data: existingRows, error: existingError } = await this.supabase
       .from('exam_submissions')
-      .select('id', { count: 'exact', head: true })
+      .select('id, session_id, answers')
       .eq('exam_id', exam_id)
       .eq('student_id', student_id)
-
-    console.log(existingError);
-    
+      .order('created_at', { ascending: false })
+      .limit(1);
 
     if (existingError) throw new InternalServerErrorException(existingError.message);
-    if (count && count > 0)
+    const existingSubmission = existingRows?.[0] || null;
+    if (existingSubmission && this.hasSubmittedAnswers(existingSubmission.answers)) {
       throw new BadRequestException('Anda sudah mengirimkan jawaban untuk ujian ini.');
+    }
 
     // 🔹 AUTO SCORING FOR MULTIPLE CHOICE
     // 1. Ambil semua kunci jawaban untuk exam ini
@@ -231,19 +245,29 @@ export class ExamSubmissionService {
       totalScore = null;
     }
 
-    // Insert new submission with scored answers and total score
-    const { data, error } = await this.supabase
-      .from('exam_submissions')
-      .insert({ 
-        exam_id, 
-        student_id, 
-        session_id, 
-        answers: scoredAnswers, 
-        score: totalScore,
-        created_by 
-      })
-      .select('*')
-      .single();
+    const payload = {
+      exam_id,
+      student_id,
+      session_id,
+      answers: scoredAnswers,
+      score: totalScore,
+      updated_at: new Date(),
+      updated_by: created_by,
+    };
+
+    const query = existingSubmission
+      ? this.supabase
+          .from('exam_submissions')
+          .update(payload)
+          .eq('id', existingSubmission.id)
+      : this.supabase
+          .from('exam_submissions')
+          .insert({
+            ...payload,
+            created_by,
+          });
+
+    const { data, error } = await query.select('*').single();
 
     if (error) throw new InternalServerErrorException(error.message);
 

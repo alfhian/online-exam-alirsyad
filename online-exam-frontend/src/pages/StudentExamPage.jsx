@@ -198,11 +198,25 @@ const StudentExamPage = () => {
   const startRecording = useCallback(async (sessionId) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 360 },
+          frameRate: { ideal: 10, max: 15 },
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
       });
 
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")
+        ? "video/webm;codecs=vp8,opus"
+        : "video/webm";
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType,
+        videoBitsPerSecond: 300_000,
+        audioBitsPerSecond: 48_000,
+      });
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -292,7 +306,7 @@ const StudentExamPage = () => {
         }
       };
 
-      mediaRecorder.start();
+      mediaRecorder.start(10000);
     } catch (err) {
       console.error("❌ Gagal akses kamera:", err);
     }

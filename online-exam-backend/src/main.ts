@@ -8,14 +8,21 @@ import * as bodyParser from 'body-parser';
 
 async function bootstrap() {
   // 🧩 Nonaktifkan body parser agar Multer bisa membaca stream multipart
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
+
+  const jsonBodyLimit = process.env.JSON_BODY_LIMIT || '8mb';
 
   // ⛔️ Nonaktifkan parser JSON untuk route upload video
   app.use('/api/exam-sessions/:sessionId/upload-video', (req, res, next) => {
     req.headers['content-type']?.includes('multipart/form-data')
       ? next() // biarkan Multer handle multipart
-      : bodyParser.json()(req, res, next);
+      : bodyParser.json({ limit: jsonBodyLimit })(req, res, next);
   });
+
+  app.use(bodyParser.json({ limit: jsonBodyLimit }));
+  app.use(bodyParser.urlencoded({ limit: jsonBodyLimit, extended: true }));
 
   app.setGlobalPrefix('api');
 

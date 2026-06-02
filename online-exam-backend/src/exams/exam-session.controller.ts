@@ -13,6 +13,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { ExamSessionService } from './exam-session.service';
 import type { Request } from 'express';
 
+const maxVideoUploadBytes =
+  Number(process.env.MAX_EXAM_VIDEO_UPLOAD_MB || 80) * 1024 * 1024;
+
 @Controller('exam-sessions')
 @UseGuards(AuthGuard('jwt'))
 export class ExamSessionController {
@@ -22,7 +25,12 @@ export class ExamSessionController {
    * Upload video ke Supabase Storage
    */
   @Post(':sessionId/upload-video')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    limits: {
+      fileSize: maxVideoUploadBytes,
+      files: 1,
+    },
+  }))
   async uploadVideo(
     @Param('sessionId') sessionId: string,
     @UploadedFile() file: Express.Multer.File,
