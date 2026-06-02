@@ -24,7 +24,7 @@ const initialFormData = {
   type: "multiple_choice",
   options: [],
   answer: "",
-  index: 0,
+  index: 1,
 };
 
 const stripHtml = (value = "") =>
@@ -52,6 +52,16 @@ const normalizeOptions = (options) => {
   return [];
 };
 
+const normalizeIndex = (value) => {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+};
+
+const buildQuestionnairePayload = (data) => ({
+  ...data,
+  index: normalizeIndex(data.index),
+});
+
 
 const Questionnaire = () => {
   const { examId } = useParams();
@@ -73,7 +83,7 @@ const Questionnaire = () => {
     type: "multiple_choice",
     options: [],
     answer: "",
-    index: 0,
+    index: 1,
   });
 
   const resetForm = () => {
@@ -84,7 +94,10 @@ const Questionnaire = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "index" ? normalizeIndex(value) : value,
+    }));
   };
 
   const addOption = () =>
@@ -154,7 +167,7 @@ const Questionnaire = () => {
     }
 
     try {
-      await api.post(`/exams/${examId}/questionnaires`, formData);
+      await api.post(`/exams/${examId}/questionnaires`, buildQuestionnairePayload(formData));
       setShowModal(false);
       resetForm();
       MySwal.fire({
@@ -187,7 +200,7 @@ const Questionnaire = () => {
           type: q.type,
           options: normalizeOptions(q.options),
           answer: q.answer,
-          index: q.index,
+          index: normalizeIndex(q.index),
         });
         setSelectedId(q.id);
         setEditModalOpen(true);
@@ -224,7 +237,7 @@ const Questionnaire = () => {
     }
 
     try {
-      await api.put(`/exams/${examId}/questionnaires/${selectedId}`, formData);
+      await api.put(`/exams/${examId}/questionnaires/${selectedId}`, buildQuestionnairePayload(formData));
       setEditModalOpen(false);
       resetForm();
       MySwal.fire({
@@ -496,6 +509,8 @@ const Questionnaire = () => {
                           name="index"
                           value={formData.index}
                           onChange={handleInputChange}
+                          min="1"
+                          step="1"
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
                         />
                       </div>

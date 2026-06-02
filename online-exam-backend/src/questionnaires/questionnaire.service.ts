@@ -8,6 +8,11 @@ import { UpdateQuestionnaireDto } from './dto/update-questionnaire.dto';
 export class QuestionnaireService {
   constructor(private readonly supabase: SupabaseClient) {}
 
+  private normalizeIndex(value: unknown): number {
+    const parsed = Number.parseInt(String(value ?? ''), 10);
+    return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+  }
+
   private async assertCanManageExam(examId: string, user?: any) {
     const role = String(user?.role || '').toUpperCase();
     if (role === 'ADMIN') return;
@@ -43,6 +48,7 @@ export class QuestionnaireService {
       .from('questionnaires')
       .insert({
         ...dto,
+        index: this.normalizeIndex(dto.index),
         created_at: new Date(),
       })
       .select()
@@ -116,6 +122,7 @@ export class QuestionnaireService {
       .from('questionnaires')
       .update({
         ...dto,
+        ...(dto.index !== undefined ? { index: this.normalizeIndex(dto.index) } : {}),
         updated_at: new Date(),
       })
       .eq('id', id)

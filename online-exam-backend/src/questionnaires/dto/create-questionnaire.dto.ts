@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsNotEmpty,
   IsOptional,
@@ -7,6 +7,7 @@ import {
   IsIn,
   IsArray,
   IsInt,
+  Min,
   ValidateNested,
   ValidateIf,
 } from 'class-validator';
@@ -47,8 +48,12 @@ export class CreateQuestionnaireDto {
   @IsOptional()
   answer?: string;
 
-  @Type(() => Number)
+  @Transform(({ value }) => {
+    const parsed = Number.parseInt(String(value ?? ''), 10);
+    return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+  })
   @IsInt()
+  @Min(1)
   index: number;
 
   @IsOptional()

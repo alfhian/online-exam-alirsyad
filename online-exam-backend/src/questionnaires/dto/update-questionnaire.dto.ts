@@ -8,7 +8,7 @@ import {
   IsInt,
   Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 class OptionDto {
   @IsString()
@@ -35,6 +35,11 @@ export class UpdateQuestionnaireDto {
   type?: 'multiple_choice' | 'essay';
 
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    const parsed = Number.parseInt(String(value), 10);
+    return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+  })
   @IsInt()
   @Min(1)
   index?: number;
