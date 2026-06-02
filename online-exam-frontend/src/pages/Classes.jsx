@@ -16,8 +16,9 @@ export default function Classes() {
   const fetchClasses = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/classes", { params: { limit: 100 } });
-      setRows(res.data?.data || []);
+      const res = await api.get("/classes/all");
+      const classRows = Array.isArray(res.data) ? res.data : res.data?.data;
+      setRows(Array.isArray(classRows) ? classRows : []);
     } catch (err) {
       MySwal.fire("Error", err.response?.data?.message || "Gagal mengambil data kelas.", "error");
     } finally {
