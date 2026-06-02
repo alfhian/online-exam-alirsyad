@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, InternalServerErrorException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
@@ -333,28 +333,46 @@ export class UsersService {
     page: number,
     limit: number,
     examId?: string,
+    user?: any,
   ) {
     const offset = (page - 1) * limit;
 
     let classId: string | null = null;
 
-    // FETCH CLASS ID FROM EXAM (FIXED)
+    const currentRole = String(user?.role || '').toUpperCase();
+
+    if (currentRole === 'GURU' && !examId) {
+      return {
+        data: [],
+        total: 0,
+        page,
+        limit,
+        meta: { total: 0, page, limit, totalPages: 0 },
+      };
+    }
+
     if (examId) {
       const { data: exam } = await this.supabase
         .from('exams')
         .select(
           `
           id,
+          subject_id,
           subjects (
-            class_id
+            class_id,
+            teacher_id
           )
         `,
         )
         .eq('id', examId)
         .single();
 
-      classId = exam?.subjects?.[0]?.class_id ?? null;
+      const subject = Array.isArray(exam?.subjects) ? exam.subjects[0] : exam?.subjects;
+      classId = subject?.class_id ?? null;
 
+      if (currentRole === 'GURU' && subject?.teacher_id !== user?.sub) {
+        throw new ForbiddenException('Anda tidak memiliki akses ke ujian ini.');
+      }
     }
 
     let query = this.supabase
@@ -382,6 +400,12 @@ export class UsersService {
       total: count,
       page,
       limit,
+      meta: {
+        total: count || 0,
+        page,
+        limit,
+        totalPages: Math.ceil((count || 0) / limit),
+      },
     };
   }
 }

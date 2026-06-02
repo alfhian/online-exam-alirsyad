@@ -19,11 +19,12 @@ import { User } from './entities/user.entity';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 import * as bcrypt from 'bcryptjs';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('users')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -88,7 +89,9 @@ export class UsersController {
   // GET USERS BY ROLE
   // ============================
   @Get('role')
+  @Roles(Role.ADMIN, Role.GURU)
   async getUsersByRole(
+    @Req() req: Request,
     @Query('role') role: string,
     @Query('examId') examId?: string,
     @Query('search') search = '',
@@ -109,6 +112,7 @@ export class UsersController {
       Number(page),
       Number(limit),
       examId,
+      (req as any).user,
     );
   }
 
@@ -116,6 +120,7 @@ export class UsersController {
   // GET USER BY ID
   // ============================
   @Get(':id')
+  @Roles(Role.ADMIN)
   async findOne(@Param('id') id: string) {
     const user = await this.usersService.getUserById(id);
     if (!user) throw new NotFoundException(`User ${id} not found`);

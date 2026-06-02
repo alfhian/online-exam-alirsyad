@@ -144,6 +144,8 @@ export class TeacherExamsService {
     const to = from + limit - 1;
 
     try {
+      await this.assertTeacherCanAccessExam(examId, user);
+
       // 1️⃣ Ambil semua submissions untuk exam tertentu
       const { data: submissions, error: subError } = await this.supabase
         .from('exam_submissions')

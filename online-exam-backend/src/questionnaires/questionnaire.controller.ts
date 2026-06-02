@@ -13,13 +13,17 @@ import {
   Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { Role } from 'src/common/enums/role.enum';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 import { QuestionnaireService } from './questionnaire.service';
 import { Questionnaire } from './entities/questionnaire.entity';
 import { CreateQuestionnaireDto } from './dto/create-questionnaire.dto';
 import { UpdateQuestionnaireDto } from './dto/update-questionnaire.dto';
 
 @Controller('exams/:examId/questionnaires')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@Roles(Role.ADMIN, Role.GURU)
 export class QuestionnaireController {
   constructor(private readonly questionnaireService: QuestionnaireService) {}
 
@@ -42,7 +46,7 @@ export class QuestionnaireController {
       ...dto,
       exam_id: examId,
       created_by: userId,
-    });
+    }, req.user);
   }
 
   /** -------------------------
@@ -56,6 +60,7 @@ export class QuestionnaireController {
     @Query('order') order: 'asc' | 'desc' = 'asc',
     @Query('page') page = '1',
     @Query('limit') limit = '10',
+    @Req() req: any,
   ) {
     try {
       return await this.questionnaireService.getDataWithPagination(
@@ -65,6 +70,7 @@ export class QuestionnaireController {
         order,
         Number(page),
         Number(limit),
+        req.user,
       );
     } catch (error) {
       throw new InternalServerErrorException(error.message);
@@ -75,8 +81,8 @@ export class QuestionnaireController {
    * GET SINGLE QUESTION
    * ------------------------- */
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.questionnaireService.findById(id);
+  async findOne(@Param('id') id: string, @Req() req: any) {
+    return this.questionnaireService.findById(id, req.user);
   }
 
   /** -------------------------
@@ -93,7 +99,7 @@ export class QuestionnaireController {
     return this.questionnaireService.update(id, {
       ...dto,
       updated_by: userId,
-    });
+    }, req.user);
   }
 
   /** -------------------------
@@ -103,6 +109,6 @@ export class QuestionnaireController {
   async softDelete(@Param('id') id: string, @Req() req: any) {
     const userId = req.user?.sub;
 
-    return this.questionnaireService.softDelete(id, userId);
+    return this.questionnaireService.softDelete(id, userId, req.user);
   }
 }

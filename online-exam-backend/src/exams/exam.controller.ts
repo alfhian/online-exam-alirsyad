@@ -7,24 +7,23 @@ import {
   Param,
   Body,
   BadRequestException,
-  InternalServerErrorException,
   Req,
   UseGuards,
   Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from 'src/common/decorators/roles.decorator';
+import { Role } from 'src/common/enums/role.enum';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 import { ExamService } from './exam.service';
 import { ExamStudentsService } from './exam-student.service';
-import { SupabaseClient } from '@supabase/supabase-js';
 
 @Controller('exams')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class ExamController {
   constructor(
     private readonly examService: ExamService,
     private readonly examStudentsService: ExamStudentsService,
-    private readonly supabase: SupabaseClient,
   ) {}
 
   private normalizeExamDate(date: string | Date): string {
@@ -34,6 +33,7 @@ export class ExamController {
   }
 
   @Post()
+  @Roles(Role.ADMIN, Role.GURU)
   async create(@Body() body: any, @Req() req: any) {
     const createdBy = req.user?.sub;
 
@@ -45,21 +45,15 @@ export class ExamController {
 
     const formattedDate = this.normalizeExamDate(body.date);
 
-    const { data, error } = await this.supabase
-      .from('exams')
-      .insert({
-        ...body,
-        date: formattedDate,
-        created_by: createdBy,
-      })
-      .select('*')
-      .single();
-
-    if (error) throw new InternalServerErrorException(error.message);
-    return data;
+    return this.examService.create({
+      ...body,
+      date: formattedDate,
+      created_by: createdBy,
+    }, req.user);
   }
 
   @Get()
+  @Roles(Role.ADMIN, Role.GURU)
   async getAll(
     @Query('search') search = '',
     @Query('sort') sort = 'title',
@@ -94,62 +88,42 @@ export class ExamController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const { data, error } = await this.supabase
-      .from('exams')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) throw new InternalServerErrorException(error.message);
+  async findOne(@Param('id') id: string, @Req() req: any) {
+    const data = await this.examService.findById(id, req.user);
     if (!data) throw new BadRequestException(`Exam ${id} not found`);
     return data;
   }
 
   @Get(':id/questions')
-  async getExamQuestions(@Param('id') examId: string) {
-    return this.examService.getExamQuestions(examId);
+  async getExamQuestions(@Param('id') examId: string, @Req() req: any) {
+    return this.examService.getExamQuestions(examId, req.user);
   }
 
   @Put(':id')
-  async update(@Param('id') id: string, @Body() dto: any) {
-    const updatePayload = {
+  @Roles(Role.ADMIN, Role.GURU)
+  async update(@Param('id') id: string, @Body() dto: any, @Req() req: any) {
+    return this.examService.update(id, {
       ...dto,
       ...(dto.date ? { date: this.normalizeExamDate(dto.date) } : {}),
       updated_at: new Date(),
-      updated_by: dto.updated_by,
-    };
-
-    const { data, error } = await this.supabase
-      .from('exams')
-      .update(updatePayload)
-      .eq('id', id)
-      .select('*')
-      .single();
-
-    if (error) throw new InternalServerErrorException(error.message);
-    return data;
+      updated_by: req.user?.sub,
+    }, req.user);
   }
 
   @Delete(':id')
+  @Roles(Role.ADMIN, Role.GURU)
   async softDelete(@Param('id') id: string, @Req() req: any) {
-    const { data, error } = await this.supabase
-      .from('exams')
-      .update({ deleted_at: new Date(), deleted_by: req.user?.sub })
-      .eq('id', id)
-      .select('*')
-      .single();
-
-    if (error) throw new InternalServerErrorException(error.message);
-    return data;
+    return this.examService.softDelete(id, req.user?.sub, req.user);
   }
 
   @Get(':id/students')
+  @Roles(Role.ADMIN, Role.GURU)
   async getStudents(@Param('id') examId: string) {
     return this.examStudentsService.getExamStudents(examId);
   }
 
   @Post(':id/students')
+  @Roles(Role.ADMIN, Role.GURU)
   async assignStudents(@Param('id') examId: string, @Body('studentIds') studentIds: string[], @Req() req: any) {
     const createdBy = req.user?.sub;
     if (!studentIds?.length) throw new BadRequestException('studentIds tidak boleh kosong');

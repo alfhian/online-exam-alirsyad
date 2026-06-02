@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface CreateExamSubmissionDto {
@@ -12,6 +12,48 @@ export interface CreateExamSubmissionDto {
 @Injectable()
 export class ExamSubmissionService {
   constructor(private readonly supabase: SupabaseClient) {}
+
+  private normalizeClassIdentifier(value?: string | null) {
+    return String(value || '')
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, '')
+      .replace(/^KELAS/, '');
+  }
+
+  private async assertStudentCanSubmitExam(examId: string, studentId: string) {
+    const [{ data: student, error: studentError }, { data: exam, error: examError }] = await Promise.all([
+      this.supabase
+        .from('users')
+        .select('id,class_id,class_name,role')
+        .eq('id', studentId)
+        .is('deleted_at', null)
+        .single(),
+      this.supabase
+        .from('exams')
+        .select('id, subject:subjects(id,class_id)')
+        .eq('id', examId)
+        .is('deleted_at', null)
+        .single(),
+    ]);
+
+    if (studentError || !student) throw new NotFoundException('Siswa tidak ditemukan');
+    if (examError || !exam) throw new NotFoundException('Ujian tidak ditemukan');
+    if (String(student.role || '').toUpperCase() !== 'SISWA') {
+      throw new ForbiddenException('Hanya siswa yang dapat mengerjakan ujian.');
+    }
+
+    const subject = Array.isArray(exam.subject) ? exam.subject[0] : exam.subject;
+    const studentClasses = [
+      this.normalizeClassIdentifier(student.class_id),
+      this.normalizeClassIdentifier(student.class_name),
+    ].filter(Boolean);
+    const subjectClass = this.normalizeClassIdentifier(subject?.class_id);
+
+    if (!subjectClass || !studentClasses.includes(subjectClass)) {
+      throw new ForbiddenException('Ujian ini tidak tersedia untuk kelas Anda.');
+    }
+  }
 
   // ================================
   // GET SUBMISSIONS BY STUDENT
@@ -134,6 +176,8 @@ export class ExamSubmissionService {
     if (!student_id) throw new BadRequestException('student_id is required');
     if (!session_id) throw new BadRequestException('session_id is required');
     if (!Array.isArray(answers)) throw new BadRequestException('answers must be an array');
+
+    await this.assertStudentCanSubmitExam(exam_id, student_id);
 
     // Check existing submission
     const { count, error: existingError } = await this.supabase

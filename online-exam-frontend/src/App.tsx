@@ -37,7 +37,7 @@ function App() {
         <Route
           path="/user-management"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ADMIN"]}>
               <Users />  
             </ProtectedRoute>
           }
@@ -45,7 +45,7 @@ function App() {
         <Route
           path="/exam"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ADMIN", "GURU"]}>
               <Exam />  
             </ProtectedRoute>
           }
@@ -53,7 +53,7 @@ function App() {
         <Route
           path="/exam/:examId/questionnaire"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ADMIN", "GURU"]}>
               <Questionnaire />  
             </ProtectedRoute>
           }
@@ -61,7 +61,7 @@ function App() {
         <Route
           path="/subjects"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ADMIN", "GURU"]}>
               <Subject />  
             </ProtectedRoute>
           }
@@ -69,7 +69,7 @@ function App() {
         <Route
           path="/classes"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ADMIN"]}>
               <Classes />
             </ProtectedRoute>
           }
@@ -77,7 +77,7 @@ function App() {
         <Route
           path="/laporan"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ADMIN", "GURU"]}>
               <Reports />
             </ProtectedRoute>
           }
@@ -86,7 +86,7 @@ function App() {
         <Route
           path="/student/exam"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["SISWA"]}>
               <StudentExam />  
             </ProtectedRoute>
           }
@@ -95,7 +95,7 @@ function App() {
         <Route
           path="/student/exam/:examId"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["SISWA"]}>
               <StudentExamPage />  
             </ProtectedRoute>
           }
@@ -104,7 +104,7 @@ function App() {
         <Route
           path="/exam-submissions"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["SISWA"]}>
               <SubmittedExam />  
             </ProtectedRoute>
           }
@@ -113,7 +113,7 @@ function App() {
         <Route
           path="/exam-submissions/:submissionId"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["SISWA"]}>
               <SubmittedExamDetail />  
             </ProtectedRoute>
           }
@@ -122,7 +122,7 @@ function App() {
         <Route
           path="/teacher-exam"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ADMIN", "GURU"]}>
               <TeacherExam />  
             </ProtectedRoute>
           }
@@ -131,7 +131,7 @@ function App() {
         <Route
           path="/teacher-exam/:examId/students"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ADMIN", "GURU"]}>
               <TeacherExamStudents />  
             </ProtectedRoute>
           }
@@ -140,7 +140,7 @@ function App() {
         <Route
           path="/teacher-exam/submission/:submissionId"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ADMIN", "GURU"]}>
               <TeacherExamScoring />  
             </ProtectedRoute>
           }

@@ -11,10 +11,14 @@ import {
   Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { Role } from 'src/common/enums/role.enum';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 import { TeacherExamsService } from './teacher-exam.service';
 
 @Controller('teacher-exams')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@Roles(Role.ADMIN, Role.GURU)
 export class TeacherExamsController {
   constructor(private readonly teacherExamService: TeacherExamsService) {}
 

@@ -12,8 +12,25 @@ type ReportFilter = {
 export class ReportsService {
   constructor(private readonly supabase: SupabaseClient) {}
 
-  async getExamPerformance(filter: ReportFilter) {
+  private async getAllowedSubjectIds(user?: any) {
+    if (String(user?.role || '').toUpperCase() !== 'GURU') return null;
+
+    const { data, error } = await this.supabase
+      .from('subjects')
+      .select('id')
+      .eq('teacher_id', user.sub)
+      .is('deleted_at', null);
+
+    if (error) throw new InternalServerErrorException(error.message);
+    return (data || []).map((row: any) => row.id);
+  }
+
+  async getExamPerformance(filter: ReportFilter, user?: any) {
     try {
+      const allowedSubjectIds = await this.getAllowedSubjectIds(user);
+      if (allowedSubjectIds && allowedSubjectIds.length === 0) return [];
+      if (allowedSubjectIds && filter.subjectId && !allowedSubjectIds.includes(filter.subjectId)) return [];
+
       let query = this.supabase.from('exams').select(
         `
           id,
@@ -32,6 +49,7 @@ export class ReportsService {
       if (filter.from) query = query.gte('date', filter.from);
       if (filter.to) query = query.lte('date', filter.to);
       if (filter.subjectId) query = query.eq('subject_id', filter.subjectId);
+      if (allowedSubjectIds) query = query.in('subject_id', allowedSubjectIds);
       if (filter.examType) query = query.eq('type', filter.examType.toUpperCase());
 
       const { data, error } = await query.order('date', { ascending: false });
@@ -43,8 +61,12 @@ export class ReportsService {
     }
   }
 
-  async getSubmissionList(filter: ReportFilter) {
+  async getSubmissionList(filter: ReportFilter, user?: any) {
     try {
+      const allowedSubjectIds = await this.getAllowedSubjectIds(user);
+      if (allowedSubjectIds && allowedSubjectIds.length === 0) return [];
+      if (allowedSubjectIds && filter.subjectId && !allowedSubjectIds.includes(filter.subjectId)) return [];
+
       let query = this.supabase.from('exam_submissions').select(
         `
           id,
@@ -77,6 +99,9 @@ export class ReportsService {
 
       if (filter.subjectId) {
         rows = rows.filter((row: any) => row?.exams?.subject_id === filter.subjectId);
+      }
+      if (allowedSubjectIds) {
+        rows = rows.filter((row: any) => allowedSubjectIds.includes(row?.exams?.subject_id));
       }
       if (filter.examType) {
         rows = rows.filter(
@@ -111,8 +136,8 @@ export class ReportsService {
     }
   }
 
-  async getSubjectSummary(filter: ReportFilter) {
-    const submissions = await this.getSubmissionList(filter);
+  async getSubjectSummary(filter: ReportFilter, user?: any) {
+    const submissions = await this.getSubmissionList(filter, user);
 
     const grouped = submissions.reduce((acc: any, row: any) => {
       const subjectName = row?.exams?.subjects?.name || 'Tanpa Mapel';
@@ -145,14 +170,23 @@ export class ReportsService {
 
     const years = Array.from({ length: 5 }, (_, idx) => startYear + idx);
 
+    const allowedSubjectIds = await this.getAllowedSubjectIds(user);
+
     let submissionsQuery = this.supabase
       .from('exam_submissions')
-      .select('created_at,score,exams!inner(created_by)')
+      .select('created_at,score,student_id,exams!inner(subject_id)')
       .gte('created_at', `${startYear}-01-01T00:00:00`)
       .lte('created_at', `${currentYear}-12-31T23:59:59`);
 
-    if (user.role === 'GURU') {
-      submissionsQuery = submissionsQuery.eq('exams.created_by', user.sub);
+    if (allowedSubjectIds) {
+      if (allowedSubjectIds.length === 0) {
+        return {
+          submissionByYear: years.map((year) => ({ year, total: 0 })),
+          averageScoreByYear: years.map((year) => ({ year, average: 0 })),
+          roleSummary: { siswa: 0, guru: 0, admin: 0 },
+        };
+      }
+      submissionsQuery = submissionsQuery.in('exams.subject_id', allowedSubjectIds);
     }
 
     const [submissionsRes, usersRes] = await Promise.all([
@@ -188,12 +222,18 @@ export class ReportsService {
       };
     });
 
-    const normalizedRoles = users.map((user: any) => String(user.role || '').toUpperCase());
-    const roleSummary = {
-      siswa: normalizedRoles.filter((role) => role === 'SISWA').length,
-      guru: normalizedRoles.filter((role) => role === 'GURU').length,
-      admin: normalizedRoles.filter((role) => role === 'ADMIN').length,
-    };
+    const normalizedRoles = users.map((row: any) => String(row.role || '').toUpperCase());
+    const roleSummary = String(user?.role || '').toUpperCase() === 'GURU'
+      ? {
+          siswa: new Set(submissions.map((row: any) => row.student_id).filter(Boolean)).size,
+          guru: 1,
+          admin: 0,
+        }
+      : {
+          siswa: normalizedRoles.filter((role) => role === 'SISWA').length,
+          guru: normalizedRoles.filter((role) => role === 'GURU').length,
+          admin: normalizedRoles.filter((role) => role === 'ADMIN').length,
+        };
 
     return {
       submissionByYear,

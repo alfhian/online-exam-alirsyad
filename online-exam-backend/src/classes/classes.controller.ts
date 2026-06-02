@@ -2,14 +2,16 @@ import { Body, Controller, Delete, Get, Param, Post, Put, Query, Req, UseGuards 
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 import { ClassesService } from './classes.service';
 
 @Controller('classes')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class ClassesController {
   constructor(private readonly classesService: ClassesService) {}
 
   @Get()
+  @Roles(Role.ADMIN, Role.GURU)
   async getAll(
     @Query('search') search = '',
     @Query('page') page = '1',
@@ -19,6 +21,7 @@ export class ClassesController {
   }
 
   @Get('all')
+  @Roles(Role.ADMIN, Role.GURU)
   async getOptions() {
     return this.classesService.getOptions();
   }

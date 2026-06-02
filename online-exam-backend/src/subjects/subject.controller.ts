@@ -18,13 +18,15 @@ import { SubjectService } from './subject.service';
 import { Subject } from './entities/subject.entity';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 
 @Controller('subjects')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class SubjectController {
   constructor(private readonly subjectService: SubjectService) {}
 
   @Post()
+  @Roles(Role.ADMIN)
   async create(@Body() body: Partial<Subject>, @Req() req: any): Promise<Subject> {
     const createdBy = req.user?.sub;
 
@@ -45,6 +47,7 @@ export class SubjectController {
   }
 
   @Get()
+  @Roles(Role.ADMIN, Role.GURU)
   async getAll(
     @Query('search') search: string = '',
     @Query('sort') sort = 'name',
@@ -68,6 +71,7 @@ export class SubjectController {
   }
 
   @Get('all')
+  @Roles(Role.ADMIN, Role.GURU)
   async getAllData(@Req() req: any) {
     try {
       return await this.subjectService.getDataOnly(req.user);
@@ -77,8 +81,9 @@ export class SubjectController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const data = await this.subjectService.findById(id);
+  @Roles(Role.ADMIN, Role.GURU)
+  async findOne(@Param('id') id: string, @Req() req: any) {
+    const data = await this.subjectService.findById(id, req.user);
     if (!data) throw new NotFoundException(`Subject with ID ${id} not found`);
     return data;
   }
@@ -94,6 +99,7 @@ export class SubjectController {
   }
 
   @Delete(':id')
+  @Roles(Role.ADMIN)
   async softDelete(@Param('id') id: string, @Req() req: any) {
     const subject = await this.subjectService.findById(id);
     if (!subject) throw new NotFoundException(`Subject with ID ${id} not found`);

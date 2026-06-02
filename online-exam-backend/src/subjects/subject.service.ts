@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Subject } from './entities/subject.entity';
 import { CreateSubjectDto } from './dto/create-subject.dto';
@@ -105,7 +105,7 @@ export class SubjectService {
     }
   }
 
-  async findById(id: string): Promise<Subject> {
+  async findById(id: string, user?: any): Promise<Subject> {
     try {
       const { data, error } = await this.supabase
         .from('subjects')
@@ -116,8 +116,13 @@ export class SubjectService {
 
       if (error || !data) throw new NotFoundException(`Subject ${id} not found`);
 
+      if (String(user?.role || '').toUpperCase() === 'GURU' && data.teacher_id !== user.sub) {
+        throw new ForbiddenException('Anda tidak memiliki akses ke mata pelajaran ini.');
+      }
+
       return data;
     } catch (err: any) {
+      if (err instanceof ForbiddenException) throw err;
       throw new NotFoundException(err.message);
     }
   }

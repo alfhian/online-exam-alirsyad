@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Exam } from './entities/exam.entity';
 import type { Questionnaire } from '../questionnaires/entities/questionnaire.entity';
@@ -48,7 +48,57 @@ export class ExamService {
     });
   }
 
-  async create(dto: CreateExamDto): Promise<Exam> {
+  private getRole(user?: any): string {
+    return String(user?.role || '').toUpperCase();
+  }
+
+  private async getExamWithSubject(examId: string) {
+    const { data, error } = await this.supabase
+      .from('exams')
+      .select('*, subject:subjects(id,name,class_id,teacher_id)')
+      .eq('id', examId)
+      .is('deleted_at', null)
+      .single();
+
+    if (error || !data) throw new NotFoundException(`Exam ${examId} not found`);
+    return data;
+  }
+
+  async assertCanAccessExam(examId: string, user?: any) {
+    const role = this.getRole(user);
+    const exam = await this.getExamWithSubject(examId);
+    const subject = Array.isArray(exam.subject) ? exam.subject[0] : exam.subject;
+
+    if (role === 'ADMIN') return exam;
+
+    if (role === 'GURU') {
+      if (subject?.teacher_id === user?.sub) return exam;
+      throw new ForbiddenException('Anda tidak memiliki akses ke ujian ini');
+    }
+
+    if (role === 'SISWA') {
+      const { data: student, error } = await this.supabase
+        .from('users')
+        .select('class_id, class_name')
+        .eq('id', user?.sub)
+        .is('deleted_at', null)
+        .single();
+
+      if (error || !student) throw new ForbiddenException('Data siswa tidak ditemukan');
+
+      const studentClasses = [student.class_id, student.class_name]
+        .filter(Boolean)
+        .map((value) => this.normalizeClassIdentifier(value));
+      const subjectClass = this.normalizeClassIdentifier(subject?.class_id);
+
+      if (studentClasses.includes(subjectClass)) return exam;
+      throw new ForbiddenException('Ujian ini tidak tersedia untuk kelas Anda');
+    }
+
+    throw new ForbiddenException('Role tidak memiliki akses ke ujian ini');
+  }
+
+  async create(dto: CreateExamDto, user?: any): Promise<Exam> {
     // Supabase row type untuk tabel exams
     type ExamRow = {
       id?: string;
@@ -62,6 +112,20 @@ export class ExamService {
       deleted_at?: string | null;
       deleted_by?: string | null;
     };
+
+    if (this.getRole(user) === 'GURU') {
+      const { data: subject, error: subjectError } = await this.supabase
+        .from('subjects')
+        .select('id, teacher_id')
+        .eq('id', dto.subject_id)
+        .is('deleted_at', null)
+        .single();
+
+      if (subjectError || !subject) throw new NotFoundException('Mata pelajaran tidak ditemukan');
+      if (subject.teacher_id !== user?.sub) {
+        throw new ForbiddenException('Guru hanya dapat membuat ujian untuk mata pelajaran yang diampu');
+      }
+    }
 
     const { data, error } = await this.supabase
     .from('exams') // string literal nama tabel
@@ -134,7 +198,7 @@ export class ExamService {
     };
   }
 
-  async findById(id: string): Promise<Exam | null> {
+  async findById(id: string, user?: any): Promise<Exam | null> {
   // helper untuk map row Supabase ke entity Exam
     function mapExamRow(row: any): Exam {
       return {
@@ -149,28 +213,12 @@ export class ExamService {
       };
     }
 
-    const { data, error } = await this.supabase
-      .from('exams')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error || !data) return null;
-
-    return mapExamRow(data);
+    return mapExamRow(await this.assertCanAccessExam(id, user));
   }
 
-  async update(id: string, dto: UpdateExamDto): Promise<Exam> {
+  async update(id: string, dto: UpdateExamDto, user?: any): Promise<Exam> {
     // Ambil dulu row lama
-    const { data: oldData, error: fetchError } = await this.supabase
-      .from('exams')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (fetchError || !oldData) {
-      throw new NotFoundException(`Exam ${id} not found`);
-    }
+    const oldData = await this.assertCanAccessExam(id, user);
 
     // Merge dto dengan data lama
     const updatedRow = {
@@ -208,17 +256,9 @@ export class ExamService {
   }
 
 
-  async softDelete(id: string, deletedBy: string): Promise<Exam> {
+  async softDelete(id: string, deletedBy: string, user?: any): Promise<Exam> {
     // Ambil dulu row lama
-    const { data: oldData, error: fetchError } = await this.supabase
-      .from('exams')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (fetchError || !oldData) {
-      throw new NotFoundException(`Exam ${id} not found`);
-    }
+    const oldData = await this.assertCanAccessExam(id, user);
 
     const updatedRow = {
       ...oldData,
@@ -253,7 +293,9 @@ export class ExamService {
   }
 
 
-  async getExamQuestions(examId: string): Promise<{ examId: string; questions: Questionnaire[] }> {
+  async getExamQuestions(examId: string, user?: any): Promise<{ examId: string; questions: Questionnaire[] }> {
+    await this.assertCanAccessExam(examId, user);
+
     const { data: rawQuestions, error } = await this.supabase
       .from('questionnaires')
       .select('*')

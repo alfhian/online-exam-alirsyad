@@ -11,10 +11,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { Role } from 'src/common/enums/role.enum';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 import { ExamSubmissionService } from './exam-submission.service';
 
 @Controller('exam-submissions')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@Roles(Role.SISWA)
 export class ExamSubmissionController {
   constructor(private readonly examSubmissionService: ExamSubmissionService) {}
 

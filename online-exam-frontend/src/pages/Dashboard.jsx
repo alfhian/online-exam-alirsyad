@@ -265,15 +265,15 @@ const Dashboard = () => {
         }
 
         if (role === "GURU") {
-          const [teacherExamRes, subjectsRes, chartRes] = await Promise.all([
-            api.get("/teacher-exams", { params: { page: 1, limit: 1 } }),
+          const [examsRes, subjectsRes, chartRes] = await Promise.all([
+            api.get("/exams", { params: { page: 1, limit: 1 } }),
             api.get("/subjects", { params: { page: 1, limit: 1 } }),
             api.get("/reports/dashboard-charts").catch(() => ({ data: emptyCharts })),
           ]);
 
           setSummary({
             ...emptySummary,
-            teacherExams: teacherExamRes.data?.meta?.total || 0,
+            teacherExams: examsRes.data?.meta?.total || 0,
             totalSubjects: subjectsRes.data?.meta?.total || 0,
           });
           setCharts(chartRes.data || emptyCharts);

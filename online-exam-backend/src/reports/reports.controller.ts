@@ -2,10 +2,11 @@ import { Controller, Get, Query, UseGuards, Req } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 import { ReportsService } from './reports.service';
 
 @Controller('reports')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles(Role.ADMIN, Role.GURU)
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
@@ -16,8 +17,9 @@ export class ReportsController {
     @Query('to') to?: string,
     @Query('subjectId') subjectId?: string,
     @Query('examType') examType?: string,
+    @Req() req?: any,
   ) {
-    return this.reportsService.getExamPerformance({ from, to, subjectId, examType });
+    return this.reportsService.getExamPerformance({ from, to, subjectId, examType }, req.user);
   }
 
   @Get('submission-list')
@@ -26,8 +28,9 @@ export class ReportsController {
     @Query('to') to?: string,
     @Query('subjectId') subjectId?: string,
     @Query('examType') examType?: string,
+    @Req() req?: any,
   ) {
-    return this.reportsService.getSubmissionList({ from, to, subjectId, examType });
+    return this.reportsService.getSubmissionList({ from, to, subjectId, examType }, req.user);
   }
 
   @Get('subject-summary')
@@ -36,8 +39,9 @@ export class ReportsController {
     @Query('to') to?: string,
     @Query('subjectId') subjectId?: string,
     @Query('examType') examType?: string,
+    @Req() req?: any,
   ) {
-    return this.reportsService.getSubjectSummary({ from, to, subjectId, examType });
+    return this.reportsService.getSubjectSummary({ from, to, subjectId, examType }, req.user);
   }
 
   @Get('dashboard-charts')
