@@ -8,7 +8,6 @@ import {
   Body,
   BadRequestException,
   NotFoundException,
-  InternalServerErrorException,
   Query,
   UseGuards,
   Req,
@@ -33,17 +32,13 @@ export class SubjectController {
     if (!body.name) throw new BadRequestException('Missing required fields: name');
     if (!body.class_id) throw new BadRequestException('Missing required fields: class_id');
 
-    try {
-      return await this.subjectService.create({
-        name: body.name,
-        class_id: body.class_id,
-        teacher_id: body.teacher_id,
-        description: body.description,
-        created_by: createdBy,
-      });
-    } catch (err: any) {
-      throw new InternalServerErrorException(err.message);
-    }
+    return await this.subjectService.create({
+      name: body.name,
+      class_id: body.class_id,
+      teacher_id: body.teacher_id,
+      description: body.description,
+      created_by: createdBy,
+    });
   }
 
   @Get()
@@ -56,28 +51,20 @@ export class SubjectController {
     @Query('limit') limit = '10',
     @Req() req: any,
   ) {
-    try {
-      return await this.subjectService.getDataWithPagination(
-        search,
-        sort,
-        order,
-        Number(page),
-        Number(limit),
-        req.user,
-      );
-    } catch (err: any) {
-      throw new InternalServerErrorException(err.message);
-    }
+    return await this.subjectService.getDataWithPagination(
+      search,
+      sort,
+      order,
+      Number(page),
+      Number(limit),
+      req.user,
+    );
   }
 
   @Get('all')
   @Roles(Role.ADMIN, Role.GURU)
   async getAllData(@Req() req: any) {
-    try {
-      return await this.subjectService.getDataOnly(req.user);
-    } catch (err: any) {
-      throw new InternalServerErrorException(err.message);
-    }
+    return await this.subjectService.getDataOnly(req.user);
   }
 
   @Get(':id')

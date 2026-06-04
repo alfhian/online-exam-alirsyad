@@ -2,7 +2,6 @@ import { useState, useEffect, Fragment } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FaBookOpen } from "react-icons/fa";
 import Sidebar from "../components/Sidebar";
-import axios from "axios";
 import SearchBar from "../components/Users/SearchBar";
 import SubjectTable from "../components/Subjects/SubjectTable";
 import Pagination from "../components/Paginate";

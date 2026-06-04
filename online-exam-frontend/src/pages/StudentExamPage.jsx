@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api/axiosConfig";
 import Swal from "sweetalert2";
 import RichTextRenderer from "../components/RichTextRenderer";
 import LoadingButton from "../components/LoadingButton";
@@ -67,20 +67,12 @@ const StudentExamPage = () => {
   useEffect(() => {
     const fetchExam = async () => {
       try {
-        const token = localStorage.getItem("token");
-
-        const { data: examData } = await axios.get(
-          `${import.meta.env.VITE_API_BASE_URL}/exams/${examId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const { data: examData } = await api.get(`/exams/${examId}`);
 
         setExam(examData);
         setTimeLeft(Number(examData.duration) * 60);
 
-        const { data: qRes } = await axios.get(
-          `${import.meta.env.VITE_API_BASE_URL}/exams/${examId}/questions`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const { data: qRes } = await api.get(`/exams/${examId}/questions`);
 
         console.log(qRes.questions);
         
@@ -130,7 +122,6 @@ const StudentExamPage = () => {
     const currentAlarm = alarm.current;
     currentAlarm.loop = true;
 
-    const token = localStorage.getItem("token");
     const showWarning = async (msg) => {
       // Play alarm
       currentAlarm.play().catch(e => console.log("Autoplay blocked or audio error", e));
@@ -161,11 +152,7 @@ const StudentExamPage = () => {
       currentAlarm.currentTime = 0;
 
       if (sessionId && !submittingRef.current) {
-        await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL}/exam-sessions/${sessionId}/tab-switch`,
-          {},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await api.post(`/exam-sessions/${sessionId}/tab-switch`, {});
       }
     };
 
@@ -323,11 +310,7 @@ const StudentExamPage = () => {
     if (starting) return;
     try {
       setStarting(true);
-      const { data } = await axios.post(
-        `${import.meta.env.VITE_API_BASE_URL}/exam-sessions/${examId}/start`,
-        {},
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-      );
+      const { data } = await api.post(`/exam-sessions/${examId}/start`, {});
 
       setSessionId(data.id);
       setStarted(true);
@@ -386,8 +369,6 @@ const StudentExamPage = () => {
         didOpen: () => Swal.showLoading(),
       });
 
-      const token = localStorage.getItem("token");
-
       const payload = {
         answers: Object.entries(studentAnswers).map(([question_id, answer]) => ({
           question_id,
@@ -396,23 +377,10 @@ const StudentExamPage = () => {
         sessionId: sessionId,
       };
 
-      await axios.post(
-        `${import.meta.env.VITE_API_BASE_URL}/exam-submissions/${examId}`,
-        payload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      await api.post(`/exam-submissions/${examId}`, payload);
 
       if (sessionId) {
-        await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL}/exam-sessions/${sessionId}/finish`,
-          {},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await api.post(`/exam-sessions/${sessionId}/finish`, {});
       }
 
       // Stop recording + exit fullscreen

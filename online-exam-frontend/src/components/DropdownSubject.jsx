@@ -2,7 +2,7 @@ import Select from 'react-select';
 import { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
-import axios from 'axios';
+import api from '../api/axiosConfig';
 
 const MySwal = withReactContent(Swal);
 
@@ -13,11 +13,7 @@ export default function SubjectSelect({ subject, setSubject }) {
 	const fetchData = async () => {
 		setLoading(true);
 		try {
-			const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/subjects/all`, {
-				headers: {
-					Authorization: `Bearer ${localStorage.getItem('token')}`,
-				}
-			})
+			const res = await api.get('/subjects/all')
 
 			const newOptions = res.data?.data.map(item => ({
 				value: item.id,

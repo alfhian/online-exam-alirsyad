@@ -8,11 +8,41 @@ import { UpdateQuestionDto } from './dto/update-question.dto';
 export class QuestionService {
   constructor(private readonly supabase: SupabaseClient) {}
 
+  private toInsertPayload(dto: CreateQuestionDto) {
+    return {
+      exam_id: (dto as any).exam_id ?? dto.examId,
+      question: (dto as any).question ?? dto.questionText,
+      type: dto.type,
+      ...(Object.prototype.hasOwnProperty.call(dto, 'options') ? { options: (dto as any).options } : {}),
+      ...(Object.prototype.hasOwnProperty.call(dto, 'answer') ? { answer: (dto as any).answer } : {}),
+      created_by: (dto as any).created_by ?? dto.createdBy,
+      created_at: new Date(),
+    };
+  }
+
+  private toUpdatePayload(dto: UpdateQuestionDto) {
+    return {
+      ...((dto as any).exam_id !== undefined || dto.examId !== undefined
+        ? { exam_id: (dto as any).exam_id ?? dto.examId }
+        : {}),
+      ...((dto as any).question !== undefined || dto.questionText !== undefined
+        ? { question: (dto as any).question ?? dto.questionText }
+        : {}),
+      ...(dto.type !== undefined ? { type: dto.type } : {}),
+      ...(Object.prototype.hasOwnProperty.call(dto, 'options') ? { options: (dto as any).options } : {}),
+      ...(Object.prototype.hasOwnProperty.call(dto, 'answer') ? { answer: (dto as any).answer } : {}),
+      ...((dto as any).updated_by !== undefined || dto.updatedBy !== undefined
+        ? { updated_by: (dto as any).updated_by ?? dto.updatedBy }
+        : {}),
+      updated_at: new Date(),
+    };
+  }
+
   async create(dto: CreateQuestionDto): Promise<Question> {
     try {
       const { data, error } = await this.supabase
         .from('questions')
-        .insert({ ...dto, type: dto.type, created_at: new Date() })
+        .insert(this.toInsertPayload(dto))
         .select()
         .single();
 
@@ -63,7 +93,7 @@ export class QuestionService {
     try {
       const { data, error } = await this.supabase
         .from('questions')
-        .update({ ...dto, updated_at: new Date() })
+        .update(this.toUpdatePayload(dto))
         .eq('id', id)
         .select()
         .single();

@@ -164,15 +164,23 @@ export class UsersController {
   ) {
     const updatedBy = (req as any)?.user?.sub ?? null;
 
-    const updateData: Partial<User> = { ...body, updated_by: updatedBy };
+    const updateData: Partial<User> = {
+      ...(body.name !== undefined ? { name: body.name } : {}),
+      ...(body.userid !== undefined ? { userid: body.userid } : {}),
+      ...(body.nisn !== undefined ? { nisn: body.nisn } : {}),
+      ...(body.gender !== undefined ? { gender: body.gender } : {}),
+      ...(body.role !== undefined ? { role: body.role } : {}),
+      ...(body.class_id !== undefined ? { class_id: body.class_id } : {}),
+      ...(body.class_name !== undefined ? { class_name: body.class_name } : {}),
+      ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.is_active !== undefined ? { is_active: body.is_active } : {}),
+      updated_at: new Date(),
+      updated_by: updatedBy,
+    };
 
-    if (body.password) {
-      const requestedPassword = this.normalizeDefaultPassword(body.password);
-      if (requestedPassword) {
-        updateData.password = bcrypt.hashSync(requestedPassword, 10);
-      } else {
-        delete updateData.password;
-      }
+    const requestedPassword = this.normalizeDefaultPassword(body.password);
+    if (requestedPassword) {
+      updateData.password = bcrypt.hashSync(requestedPassword, 10);
     }
 
     return this.usersService.updateUser(id, updateData);

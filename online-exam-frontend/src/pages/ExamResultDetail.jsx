@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
-import axios from "axios";
+import api from "../api/axiosConfig";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import formatDateOnly from "../utils/formatDateOnly";
@@ -18,14 +18,7 @@ const ExamResultDetail = () => {
   const fetchExamResult = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_BASE_URL}/exam-submissions/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
+      const res = await api.get(`/exam-submissions/${id}`);
 
       setResult(res.data);
     } catch (err) {

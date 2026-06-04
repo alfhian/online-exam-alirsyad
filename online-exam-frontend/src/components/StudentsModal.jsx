@@ -3,6 +3,7 @@ import { Dialog, Transition } from "@headlessui/react";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import LoadingButton from "./LoadingButton";
+import api from "../api/axiosConfig";
 
 export default function StudentsModal({ isOpen, onClose, examId }) {
   const MySwal = withReactContent(Swal);
@@ -17,32 +18,32 @@ export default function StudentsModal({ isOpen, onClose, examId }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const token = localStorage.getItem("token");
-
   const fetchStudents = async (page = 1) => {
     if (!examId) return;
     setLoading(true);
 
     try {
       const [allUsersRes, examUsersRes] = await Promise.all([
-        fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/users/role?role=SISWA&examId=${examId}&page=${page}&limit=${pagination.limit}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        ).then((res) => res.json()),
-        fetch(`${import.meta.env.VITE_API_BASE_URL}/exams/${examId}/students`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }).then((res) => res.json()),
+        api.get("/users/role", {
+          params: {
+            role: "SISWA",
+            examId,
+            page,
+            limit: pagination.limit,
+          },
+        }),
+        api.get(`/exams/${examId}/students`),
       ]);
 
-      setStudents(allUsersRes.data || []);
+      setStudents(allUsersRes.data?.data || []);
       setPagination({
-        page: allUsersRes.page,
-        limit: allUsersRes.limit,
-        total: allUsersRes.total,
+        page: allUsersRes.data?.page || allUsersRes.data?.meta?.page || page,
+        limit: allUsersRes.data?.limit || allUsersRes.data?.meta?.limit || pagination.limit,
+        total: allUsersRes.data?.total || allUsersRes.data?.meta?.total || 0,
       });
       setSelectedStudents(
-        Array.isArray(examUsersRes)
-        ? examUsersRes.map((item) => item.student_id)
+        Array.isArray(examUsersRes.data)
+        ? examUsersRes.data.map((item) => item.student_id)
         : []
       );
     } catch (err) {
@@ -67,16 +68,7 @@ export default function StudentsModal({ isOpen, onClose, examId }) {
     if (saving) return;
     try {
       setSaving(true);
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/exams/${examId}/students`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ studentIds: selectedStudents }),
-      });
-
-      if (!res.ok) throw new Error("Failed to save students");
+      await api.post(`/exams/${examId}/students`, { studentIds: selectedStudents });
 
       MySwal.fire({
         icon: "success",
@@ -142,7 +134,7 @@ export default function StudentsModal({ isOpen, onClose, examId }) {
                       {loading ? (
                         <tr>
                           <td
-                            colSpan="4"
+                            colSpan="5"
                             className="text-center py-8 text-gray-500 italic"
                           >
                             Loading data...
@@ -177,7 +169,7 @@ export default function StudentsModal({ isOpen, onClose, examId }) {
                       ) : (
                         <tr>
                           <td
-                            colSpan="4"
+                            colSpan="5"
                             className="text-center py-8 text-gray-500 italic"
                           >
                             Tidak ada siswa ditemukan

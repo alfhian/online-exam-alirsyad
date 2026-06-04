@@ -1,7 +1,6 @@
 import { useState, useEffect, Fragment } from "react";
 import { useSearchParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
-import axios from "axios";
 import SearchBar from "../components/Users/SearchBar";
 import ExamTable from "../components/Exams/ExamTable";
 import Pagination from "../components/Paginate";

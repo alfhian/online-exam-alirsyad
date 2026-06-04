@@ -220,11 +220,28 @@ export class ExamService {
     // Ambil dulu row lama
     const oldData = await this.assertCanAccessExam(id, user);
 
-    // Merge dto dengan data lama
+    if (this.getRole(user) === 'GURU' && dto.subject_id && dto.subject_id !== oldData.subject_id) {
+      const { data: subject, error: subjectError } = await this.supabase
+        .from('subjects')
+        .select('id, teacher_id')
+        .eq('id', dto.subject_id)
+        .is('deleted_at', null)
+        .single();
+
+      if (subjectError || !subject) throw new NotFoundException('Mata pelajaran tidak ditemukan');
+      if (subject.teacher_id !== user?.sub) {
+        throw new ForbiddenException('Guru hanya dapat memilih mata pelajaran yang diampu');
+      }
+    }
+
     const updatedRow = {
-      ...oldData,
-      ...dto,
+      title: dto.title ?? oldData.title,
+      subject_id: dto.subject_id ?? oldData.subject_id,
+      type: dto.type ?? oldData.type,
+      duration: dto.duration ?? oldData.duration,
+      notes: dto.notes ?? oldData.notes ?? null,
       date: dto.date ? this.normalizeExamDate(dto.date) : oldData.date,
+      updated_by: (dto as any).updated_by ?? oldData.updated_by ?? null,
       updated_at: new Date(),
     };
 
@@ -258,10 +275,9 @@ export class ExamService {
 
   async softDelete(id: string, deletedBy: string, user?: any): Promise<Exam> {
     // Ambil dulu row lama
-    const oldData = await this.assertCanAccessExam(id, user);
+    await this.assertCanAccessExam(id, user);
 
     const updatedRow = {
-      ...oldData,
       deleted_at: new Date(),
       deleted_by: deletedBy,
     };

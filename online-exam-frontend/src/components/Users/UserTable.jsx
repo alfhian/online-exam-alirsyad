@@ -4,7 +4,6 @@ import withReactContent from "sweetalert2-react-content";
 import ToggleStatusButton from "./ToggleStatusButton";
 import { HiChevronUp, HiChevronDown, HiSelector } from "react-icons/hi";
 import ActionMenu from "../ActionMenu";
-import axios from "axios";
 import PropTypes from "prop-types";
 import api from "../../api/axiosConfig";
 

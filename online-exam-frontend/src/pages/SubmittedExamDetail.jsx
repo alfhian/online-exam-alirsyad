@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
-import axios from "axios";
+import api from "../api/axiosConfig";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 import formatDateOnly from "../utils/formatDateOnly";
@@ -18,14 +18,7 @@ const SubmittedExamDetail = () => {
   const fetchExamDetail = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_BASE_URL}/exam-submissions/${submissionId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
+      const res = await api.get(`/exam-submissions/${submissionId}`);
       setExamDetail(res.data);
     } catch (err) {
       console.error("Gagal ambil detail ujian:", err);

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
-import axios from "axios";
 import SearchBar from "../components/Users/SearchBar";
 import Pagination from "../components/Paginate";
 import Swal from "sweetalert2";

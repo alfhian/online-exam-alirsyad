@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
-import axios from "axios";
+import api from "../api/axiosConfig";
 import SearchBar from "../components/Users/SearchBar";
 import Pagination from "../components/Paginate";
 import Swal from "sweetalert2";
@@ -26,9 +26,8 @@ const SubmittedExams = () => {
   const fetchSubmissions = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/exam-submissions/me`, {
+      const res = await api.get("/exam-submissions/me", {
         params: { search, sort, order, page, limit: pageSize },
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       setSubmissions(Array.isArray(res.data?.data) ? res.data.data : []);
       setMeta(res.data?.meta || { total: 0 });

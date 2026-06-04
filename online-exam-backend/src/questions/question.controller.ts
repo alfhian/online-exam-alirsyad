@@ -7,7 +7,6 @@ import {
   Param,
   Body,
   Query,
-  InternalServerErrorException,
 } from '@nestjs/common';
 import { QuestionService } from './question.service';
 import { CreateQuestionDto } from './dto/create-question.dto';
@@ -19,46 +18,26 @@ export class QuestionController {
 
   @Post()
   async create(@Body() dto: CreateQuestionDto) {
-    try {
-      return await this.questionService.create(dto);
-    } catch (err: any) {
-      throw new InternalServerErrorException(err.message);
-    }
+    return await this.questionService.create(dto);
   }
 
   @Get()
   async findAll(@Query('examId') examId?: string) {
-    try {
-      return await this.questionService.findAll(examId);
-    } catch (err: any) {
-      throw new InternalServerErrorException(err.message);
-    }
+    return await this.questionService.findAll(examId);
   }
 
   @Get(':id')
   async findOne(@Param('id') id: string) {
-    try {
-      return await this.questionService.findById(id);
-    } catch (err: any) {
-      throw new InternalServerErrorException(err.message);
-    }
+    return await this.questionService.findById(id);
   }
 
   @Put(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateQuestionDto) {
-    try {
-      return await this.questionService.update(id, dto);
-    } catch (err: any) {
-      throw new InternalServerErrorException(err.message);
-    }
+    return await this.questionService.update(id, dto);
   }
 
   @Delete(':id')
   async softDelete(@Param('id') id: string, @Body('deletedBy') deletedBy: string) {
-    try {
-      return await this.questionService.softDelete(id, deletedBy);
-    } catch (err: any) {
-      throw new InternalServerErrorException(err.message);
-    }
+    return await this.questionService.softDelete(id, deletedBy);
   }
 }

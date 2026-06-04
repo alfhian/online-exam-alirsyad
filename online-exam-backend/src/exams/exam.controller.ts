@@ -126,7 +126,6 @@ export class ExamController {
   @Roles(Role.ADMIN, Role.GURU)
   async assignStudents(@Param('id') examId: string, @Body('studentIds') studentIds: string[], @Req() req: any) {
     const createdBy = req.user?.sub;
-    if (!studentIds?.length) throw new BadRequestException('studentIds tidak boleh kosong');
     return this.examStudentsService.assignStudents(examId, studentIds, createdBy);
   }
 }

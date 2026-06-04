@@ -2,7 +2,6 @@ import { useState, useEffect, Fragment, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FaUsers, FaFileImport, FaDownload } from "react-icons/fa";
 import Sidebar from "../components/Sidebar";
-import axios from "axios";
 import SearchBar from "../components/Users/SearchBar";
 import UserTable from "../components/Users/UserTable";
 import Pagination from "../components/Paginate";
@@ -109,9 +108,7 @@ const Users = () => {
 
     try {
       setSaving(true);
-      await axios.post(`${import.meta.env.VITE_API_BASE_URL}/users`, formData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.post("/users", formData);
       setShowModal(false);
       resetForm();
       MySwal.fire("Berhasil!", "User berhasil ditambahkan.", "success");

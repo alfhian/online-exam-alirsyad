@@ -157,9 +157,18 @@ export class SubjectService {
       }
     }
 
+    const updatePayload = {
+      ...(dto.name !== undefined ? { name: dto.name } : {}),
+      ...(dto.description !== undefined ? { description: dto.description } : {}),
+      ...(dto.class_id !== undefined ? { class_id: dto.class_id } : {}),
+      ...(dto.teacher_id !== undefined ? { teacher_id: dto.teacher_id } : {}),
+      ...(dto.updated_by !== undefined ? { updated_by: dto.updated_by } : {}),
+      updated_at: new Date(),
+    };
+
     const { data, error } = await this.supabase
       .from('subjects')
-      .update({ ...dto, updated_at: new Date() })
+      .update(updatePayload)
       .eq('id', id)
       .select()
       .single();
