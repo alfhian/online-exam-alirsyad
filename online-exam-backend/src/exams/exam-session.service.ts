@@ -20,7 +20,6 @@ export class ExamSessionService {
       .eq("exam_id", examId)
       .eq("student_id", studentId)
       .eq("finished", false)
-      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
