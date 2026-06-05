@@ -569,7 +569,23 @@ const Users = () => {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const fileInputRef = useRef(null);
 
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
+    let classRows = [];
+
+    try {
+      const classRes = await api.get("/classes/all");
+      const rows = Array.isArray(classRes.data) ? classRes.data : classRes.data?.data;
+      classRows = Array.isArray(rows) ? rows : [];
+    } catch (err) {
+      console.error("Failed to fetch class master for template:", err);
+      MySwal.fire(
+        "Perhatian",
+        "Template tetap diunduh, tetapi data master kelas gagal dimuat.",
+        "warning"
+      );
+    }
+
+    const sampleClass = classRows[0];
     const templateData = [
       {
         userid: "123456",
@@ -577,15 +593,64 @@ const Users = () => {
         nisn: "0012345678",
         gender: "L",
         role: "SISWA",
-        class_id: "11AK1",
+        class_id: sampleClass?.id || "11AK1",
         password: "password123",
         description: "Keterangan tambahan",
       },
     ];
 
     const worksheet = XLSX.utils.json_to_sheet(templateData);
+    worksheet["!cols"] = [
+      { wch: 14 },
+      { wch: 24 },
+      { wch: 16 },
+      { wch: 10 },
+      { wch: 12 },
+      { wch: 14 },
+      { wch: 18 },
+      { wch: 28 },
+    ];
+
+    const masterClassData = classRows.length
+      ? classRows.map((item) => ({
+          class_id: item.id,
+          nama_kelas: item.name,
+          tingkat: item.grade ?? "",
+        }))
+      : [
+          {
+            class_id: "11AK1",
+            nama_kelas: "Contoh: Kelas 11 AK 1",
+            tingkat: "11",
+          },
+        ];
+
+    const masterClassSheet = XLSX.utils.json_to_sheet(masterClassData);
+    masterClassSheet["!cols"] = [
+      { wch: 14 },
+      { wch: 28 },
+      { wch: 10 },
+    ];
+
+    const guideSheet = XLSX.utils.aoa_to_sheet([
+      ["Petunjuk Pengisian Template User"],
+      [""],
+      ["Kolom", "Keterangan"],
+      ["userid", "ID pengguna / NIS / NIK. Wajib unik."],
+      ["name", "Nama lengkap pengguna."],
+      ["nisn", "NISN siswa. Boleh dikosongkan untuk non-siswa."],
+      ["gender", "Isi L atau P."],
+      ["role", "Isi ADMIN, GURU, atau SISWA."],
+      ["class_id", "Gunakan nilai class_id dari sheet Master Kelas."],
+      ["password", "Boleh dikosongkan jika ingin memakai password default sistem."],
+      ["description", "Keterangan tambahan opsional."],
+    ]);
+    guideSheet["!cols"] = [{ wch: 18 }, { wch: 64 }];
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    XLSX.utils.book_append_sheet(workbook, masterClassSheet, "Master Kelas");
+    XLSX.utils.book_append_sheet(workbook, guideSheet, "Petunjuk");
     XLSX.writeFile(workbook, "template_registrasi_user.xlsx");
   };
 

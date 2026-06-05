@@ -6,8 +6,14 @@ const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
 });
 
-const getFriendlyErrorMessage = (status) => {
+const isLoginRequest = (config = {}) => {
+  const requestUrl = String(config.url || "");
+  return requestUrl.includes("/auth/login");
+};
+
+const getFriendlyErrorMessage = (status, config) => {
   if (status === 400) return "Data belum sesuai. Silakan periksa kembali isian Anda.";
+  if (status === 401 && isLoginRequest(config)) return "ID Pengguna atau Kata Sandi salah.";
   if (status === 401) return "Sesi Anda telah berakhir. Silakan login kembali.";
   if (status === 403) return "Anda tidak memiliki akses untuk melakukan aksi ini.";
   if (status === 404) return "Data yang diminta tidak ditemukan.";
@@ -28,7 +34,7 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
-    const friendlyMessage = getFriendlyErrorMessage(status);
+    const friendlyMessage = getFriendlyErrorMessage(status, error.config);
 
     if (error.response) {
       error.response.data = {
@@ -40,7 +46,7 @@ axiosInstance.interceptors.response.use(
     error.userMessage = friendlyMessage;
     error.message = friendlyMessage;
 
-    if (status === 401) {
+    if (status === 401 && !isLoginRequest(error.config)) {
       localStorage.removeItem("token");
       if (window.location.pathname !== "/") {
         Swal.fire({
