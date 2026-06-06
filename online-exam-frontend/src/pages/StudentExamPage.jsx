@@ -379,10 +379,6 @@ const StudentExamPage = () => {
 
       await api.post(`/exam-submissions/${examId}`, payload);
 
-      if (sessionId) {
-        await api.post(`/exam-sessions/${sessionId}/finish`, {});
-      }
-
       // Stop recording + exit fullscreen
       if (document.fullscreenElement) await document.exitFullscreen();
       if (

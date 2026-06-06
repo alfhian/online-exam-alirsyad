@@ -35,8 +35,8 @@ export class ExamSubmissionService {
       .replace(/^KELAS/, '');
   }
 
-  private async assertStudentCanSubmitExam(examId: string, studentId: string) {
-    const [{ data: student, error: studentError }, { data: exam, error: examError }] = await Promise.all([
+  private fetchSubmitAccessData(examId: string, studentId: string) {
+    return Promise.all([
       this.supabase
         .from('users')
         .select('id,class_id,class_name,role')
@@ -50,7 +50,9 @@ export class ExamSubmissionService {
         .is('deleted_at', null)
         .single(),
     ]);
+  }
 
+  private assertStudentExamAccess(student: any, studentError: any, exam: any, examError: any) {
     if (studentError || !student) throw new NotFoundException('Siswa tidak ditemukan');
     if (examError || !exam) throw new NotFoundException('Ujian tidak ditemukan');
     if (String(student.role || '').toUpperCase() !== 'SISWA') {
@@ -69,9 +71,13 @@ export class ExamSubmissionService {
     }
   }
 
-  // ================================
-  // GET SUBMISSIONS BY STUDENT
-  // ================================
+  private async assertStudentCanSubmitExam(examId: string, studentId: string) {
+    const [{ data: student, error: studentError }, { data: exam, error: examError }] =
+      await this.fetchSubmitAccessData(examId, studentId);
+
+    this.assertStudentExamAccess(student, studentError, exam, examError);
+  }
+
   async getSubmittedExamsByStudent(
     studentId: string,
     search: string,
@@ -82,7 +88,7 @@ export class ExamSubmissionService {
   ) {
     const offset = (page - 1) * limit;
 
-    let query = this.supabase
+    const query = this.supabase
       .from('exam_submissions')
       .select(
         `
@@ -103,8 +109,9 @@ export class ExamSubmissionService {
 
     const filteredData = keyword
       ? (data || []).filter((submission: any) =>
-          [submission.exam?.title, submission.exam?.type]
-            .some((value) => String(value ?? '').toLowerCase().includes(keyword)),
+          [submission.exam?.title, submission.exam?.type].some((value) =>
+            String(value ?? '').toLowerCase().includes(keyword),
+          ),
         )
       : (data || []);
 
@@ -119,9 +126,6 @@ export class ExamSubmissionService {
     };
   }
 
-  // ================================
-  // GET SINGLE SUBMISSION DETAIL
-  // ================================
   async getSubmissionDetail(submissionId: string, studentId?: string) {
     let query = this.supabase
       .from('exam_submissions')
@@ -129,7 +133,7 @@ export class ExamSubmissionService {
         `
         *,
         exam:exams(*, subject:subjects(*))
-      `
+      `,
       )
       .eq('id', submissionId);
 
@@ -140,15 +144,11 @@ export class ExamSubmissionService {
     if (error || !data) throw new NotFoundException('Submission tidak ditemukan');
 
     const answerList = data.answers || [];
-
     if (!answerList.length) return data;
 
-    // Ambil semua question_id unik
-    const questionIds = Array.from(new Set(answerList.map((a) => a.question_id)));
-
+    const questionIds = Array.from(new Set(answerList.map((answer) => answer.question_id)));
     if (questionIds.length === 0) return data;
 
-    // Ambil pertanyaan terkait dari tabel questionnaire
     const { data: questions, error: qError } = await this.supabase
       .from('questionnaires')
       .select('*')
@@ -156,33 +156,27 @@ export class ExamSubmissionService {
 
     if (qError) throw new InternalServerErrorException(qError.message);
 
-    // Gabungkan jawaban dengan pertanyaan
-    data.answers = answerList.map((a) => ({
-      ...a,
-      question: questions.find((q) => q.id === a.question_id) || null,
+    const questionById = new Map((questions || []).map((question) => [question.id, question]));
+    data.answers = answerList.map((answer) => ({
+      ...answer,
+      question: questionById.get(answer.question_id) || null,
     }));
 
     return data;
   }
 
-  // ================================
-  // CHECK IF SUBMITTED
-  // ================================
   async hasSubmitted(examId: string, studentId: string) {
     const { count, error } = await this.supabase
       .from('exam_submissions')
-      .select('id')
+      .select('id', { count: 'exact', head: true })
       .eq('exam_id', examId)
       .eq('student_id', studentId);
 
     if (error) throw new InternalServerErrorException(error.message);
-    
+
     return { submitted: (count || 0) > 0 };
   }
 
-  // ================================
-  // SUBMIT EXAM
-  // ================================
   async submit(dto: CreateExamSubmissionDto) {
     const { exam_id, student_id, session_id, answers, created_by } = dto;
 
@@ -191,59 +185,63 @@ export class ExamSubmissionService {
     if (!session_id) throw new BadRequestException('session_id is required');
     if (!Array.isArray(answers)) throw new BadRequestException('answers must be an array');
 
-    await this.assertStudentCanSubmitExam(exam_id, student_id);
+    const [accessResult, existingResult, questionsResult] = await Promise.all([
+      this.fetchSubmitAccessData(exam_id, student_id),
+      this.supabase
+        .from('exam_submissions')
+        .select('id, session_id, answers')
+        .eq('exam_id', exam_id)
+        .eq('student_id', student_id)
+        .limit(5),
+      this.supabase
+        .from('questionnaires')
+        .select('id, type, answer')
+        .eq('exam_id', exam_id)
+        .is('deleted_at', null),
+    ]);
 
-    const { data: existingRows, error: existingError } = await this.supabase
-      .from('exam_submissions')
-      .select('id, session_id, answers')
-      .eq('exam_id', exam_id)
-      .eq('student_id', student_id)
-      .order('created_at', { ascending: false })
-      .limit(1);
+    const [{ data: student, error: studentError }, { data: exam, error: examError }] = accessResult;
+    this.assertStudentExamAccess(student, studentError, exam, examError);
 
+    const { data: existingRows, error: existingError } = existingResult;
     if (existingError) throw new InternalServerErrorException(existingError.message);
-    const existingSubmission = existingRows?.[0] || null;
-    if (existingSubmission && this.hasSubmittedAnswers(existingSubmission.answers)) {
+
+    const submittedRow = existingRows?.find((row) => this.hasSubmittedAnswers(row.answers));
+    if (submittedRow) {
       throw new BadRequestException('Anda sudah mengirimkan jawaban untuk ujian ini.');
     }
 
-    // 🔹 AUTO SCORING FOR MULTIPLE CHOICE
-    // 1. Ambil semua kunci jawaban untuk exam ini
-    const { data: questions, error: qError } = await this.supabase
-      .from('questionnaires')
-      .select('id, type, answer')
-      .eq('exam_id', exam_id)
-      .is('deleted_at', null);
+    const existingSubmission =
+      existingRows?.find((row) => row.session_id === session_id) || existingRows?.[0] || null;
 
+    const { data: questions, error: qError } = questionsResult;
     if (qError) throw new InternalServerErrorException(qError.message);
 
-    let totalScore: number | null = null;
-    const scoredAnswers = answers.map((ans) => {
-      const question = (questions || []).find((q) => q.id === ans.question_id);
-      let isCorrect: boolean | null = null;
+    const questionById = new Map((questions || []).map((question) => [String(question.id), question]));
+    const mcQuestions = (questions || []).filter((question) => question.type === 'multiple_choice');
+    const essayQuestions = (questions || []).filter((question) => question.type === 'essay');
+    const multipleChoiceIds = new Set(mcQuestions.map((question) => String(question.id)));
 
-      if (question && question.type === 'multiple_choice') {
-        // Bandingkan jawaban (case-insensitive trim)
-        isCorrect = String(ans.answer).trim().toLowerCase() === String(question.answer).trim().toLowerCase();
-      }
-      return { ...ans, is_correct: isCorrect };
+    const scoredAnswers = answers.map((answer) => {
+      const question = questionById.get(String(answer.question_id));
+      const isCorrect =
+        question?.type === 'multiple_choice'
+          ? String(answer.answer).trim().toLowerCase() === String(question.answer).trim().toLowerCase()
+          : null;
+
+      return { ...answer, is_correct: isCorrect };
     });
 
-    // 2. Hitung skor jika ada soal pilihan ganda
-    const mcQuestions = (questions || []).filter(q => q.type === 'multiple_choice');
-    const essayQuestions = (questions || []).filter(q => q.type === 'essay');
-
-    if (mcQuestions.length > 0 && essayQuestions.length === 0) {
-      const correctCount = scoredAnswers.filter(a => {
-        const q = mcQuestions.find(mq => mq.id === a.question_id);
-        return q && a.is_correct === true;
-      }).length;
-      
-      totalScore = Math.round((correctCount / mcQuestions.length) * 100);
-    } else {
-      // Jika ada essay, biarkan totalScore null agar muncul sebagai "belum dinilai" bagi guru
-      totalScore = null;
-    }
+    const totalScore =
+      mcQuestions.length > 0 && essayQuestions.length === 0
+        ? Math.round(
+            (scoredAnswers.filter(
+              (answer) => multipleChoiceIds.has(String(answer.question_id)) && answer.is_correct === true,
+            ).length /
+              mcQuestions.length) *
+              100,
+          )
+        : null;
 
     const payload = {
       exam_id,
@@ -256,20 +254,23 @@ export class ExamSubmissionService {
     };
 
     const query = existingSubmission
-      ? this.supabase
-          .from('exam_submissions')
-          .update(payload)
-          .eq('id', existingSubmission.id)
-      : this.supabase
-          .from('exam_submissions')
-          .insert({
-            ...payload,
-            created_by,
-          });
+      ? this.supabase.from('exam_submissions').update(payload).eq('id', existingSubmission.id)
+      : this.supabase.from('exam_submissions').insert({
+          ...payload,
+          created_by,
+        });
 
-    const { data, error } = await query.select('*').single();
+    const { data, error } = await query.select('id, exam_id, student_id, session_id, score').single();
 
     if (error) throw new InternalServerErrorException(error.message);
+
+    this.supabase
+      .from('exam_sessions')
+      .update({ finished: true })
+      .eq('id', session_id)
+      .then(({ error: finishError }) => {
+        if (finishError) console.error('Failed to mark exam session finished:', finishError.message);
+      });
 
     return data;
   }
