@@ -11,7 +11,10 @@ const isLoginRequest = (config = {}) => {
   return requestUrl.includes("/auth/login");
 };
 
-const getFriendlyErrorMessage = (status, config) => {
+const getFriendlyErrorMessage = (status, config, error) => {
+  if (error?.code === "ECONNABORTED" || error?.code === "ETIMEDOUT") {
+    return "Koneksi terlalu lama. Jawaban mungkin belum terkonfirmasi, silakan coba kirim lagi.";
+  }
   if (status === 400) return "Data belum sesuai. Silakan periksa kembali isian Anda.";
   if (status === 401 && isLoginRequest(config)) return "ID Pengguna atau Kata Sandi salah.";
   if (status === 401) return "Sesi Anda telah berakhir. Silakan login kembali.";
@@ -21,6 +24,7 @@ const getFriendlyErrorMessage = (status, config) => {
   if (status === 413) return "Ukuran data terlalu besar. Silakan kecilkan file atau konten yang diunggah.";
   if (status === 422) return "Data belum valid. Silakan periksa kembali isian Anda.";
   if (status >= 500) return "Terjadi gangguan pada server. Silakan coba beberapa saat lagi.";
+  if (!status) return "Koneksi ke server bermasalah. Silakan periksa jaringan lalu coba kembali.";
   return "Proses gagal. Silakan coba kembali.";
 };
 
@@ -34,7 +38,7 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
-    const friendlyMessage = getFriendlyErrorMessage(status, error.config);
+    const friendlyMessage = getFriendlyErrorMessage(status, error.config, error);
 
     if (error.response) {
       error.response.data = {

@@ -27,6 +27,60 @@ export class ExamSubmissionService {
     return Boolean(value && typeof value === 'object' && Object.keys(value as object).length > 0);
   }
 
+  private isUniqueSubmissionViolation(error: any): boolean {
+    return (
+      error?.code === '23505' &&
+      String(error?.message || error?.details || '').includes('UQ_exam_submissions_exam_student')
+    );
+  }
+
+  private toSubmissionResponse(submission: any) {
+    return {
+      id: submission.id,
+      exam_id: submission.exam_id,
+      student_id: submission.student_id,
+      session_id: submission.session_id,
+      score: submission.score ?? null,
+    };
+  }
+
+  private async findExistingSubmission(examId: string, studentId: string) {
+    const { data, error } = await this.supabase
+      .from('exam_submissions')
+      .select('id, exam_id, student_id, session_id, answers, score')
+      .eq('exam_id', examId)
+      .eq('student_id', studentId)
+      .maybeSingle();
+
+    if (error) throw new InternalServerErrorException(error.message);
+    return data;
+  }
+
+  private async handleDuplicateSubmission(examId: string, studentId: string, sessionId: string) {
+    const submission = await this.findExistingSubmission(examId, studentId);
+
+    if (submission?.session_id === sessionId && this.hasSubmittedAnswers(submission.answers)) {
+      return this.toSubmissionResponse(submission);
+    }
+
+    throw new BadRequestException('Anda sudah mengirimkan jawaban untuk ujian ini.');
+  }
+
+  private async enqueueSubmissionPostProcessJob(submission: any, answers: any[], updatedBy: string) {
+    const { error } = await this.supabase.from('exam_submission_jobs').insert({
+      type: 'score_exam_submission',
+      submission_id: submission.id,
+      exam_id: submission.exam_id,
+      session_id: submission.session_id,
+      answers,
+      updated_by: updatedBy,
+    });
+
+    if (error) {
+      console.error('Failed to enqueue exam submission post-process job:', error.message);
+    }
+  }
+
   private normalizeClassIdentifier(value?: string | null) {
     return String(value || '')
       .trim()
@@ -185,19 +239,14 @@ export class ExamSubmissionService {
     if (!session_id) throw new BadRequestException('session_id is required');
     if (!Array.isArray(answers)) throw new BadRequestException('answers must be an array');
 
-    const [accessResult, existingResult, questionsResult] = await Promise.all([
+    const [accessResult, existingResult] = await Promise.all([
       this.fetchSubmitAccessData(exam_id, student_id),
       this.supabase
         .from('exam_submissions')
-        .select('id, session_id, answers')
+        .select('id, exam_id, student_id, session_id, answers, score')
         .eq('exam_id', exam_id)
         .eq('student_id', student_id)
         .limit(5),
-      this.supabase
-        .from('questionnaires')
-        .select('id, type, answer')
-        .eq('exam_id', exam_id)
-        .is('deleted_at', null),
     ]);
 
     const [{ data: student, error: studentError }, { data: exam, error: examError }] = accessResult;
@@ -208,47 +257,22 @@ export class ExamSubmissionService {
 
     const submittedRow = existingRows?.find((row) => this.hasSubmittedAnswers(row.answers));
     if (submittedRow) {
+      if (submittedRow.session_id === session_id) {
+        return this.toSubmissionResponse(submittedRow);
+      }
+
       throw new BadRequestException('Anda sudah mengirimkan jawaban untuk ujian ini.');
     }
 
     const existingSubmission =
       existingRows?.find((row) => row.session_id === session_id) || existingRows?.[0] || null;
 
-    const { data: questions, error: qError } = questionsResult;
-    if (qError) throw new InternalServerErrorException(qError.message);
-
-    const questionById = new Map((questions || []).map((question) => [String(question.id), question]));
-    const mcQuestions = (questions || []).filter((question) => question.type === 'multiple_choice');
-    const essayQuestions = (questions || []).filter((question) => question.type === 'essay');
-    const multipleChoiceIds = new Set(mcQuestions.map((question) => String(question.id)));
-
-    const scoredAnswers = answers.map((answer) => {
-      const question = questionById.get(String(answer.question_id));
-      const isCorrect =
-        question?.type === 'multiple_choice'
-          ? String(answer.answer).trim().toLowerCase() === String(question.answer).trim().toLowerCase()
-          : null;
-
-      return { ...answer, is_correct: isCorrect };
-    });
-
-    const totalScore =
-      mcQuestions.length > 0 && essayQuestions.length === 0
-        ? Math.round(
-            (scoredAnswers.filter(
-              (answer) => multipleChoiceIds.has(String(answer.question_id)) && answer.is_correct === true,
-            ).length /
-              mcQuestions.length) *
-              100,
-          )
-        : null;
-
     const payload = {
       exam_id,
       student_id,
       session_id,
-      answers: scoredAnswers,
-      score: totalScore,
+      answers,
+      score: null,
       updated_at: new Date(),
       updated_by: created_by,
     };
@@ -262,15 +286,15 @@ export class ExamSubmissionService {
 
     const { data, error } = await query.select('id, exam_id, student_id, session_id, score').single();
 
-    if (error) throw new InternalServerErrorException(error.message);
+    if (error) {
+      if (this.isUniqueSubmissionViolation(error)) {
+        return this.handleDuplicateSubmission(exam_id, student_id, session_id);
+      }
 
-    this.supabase
-      .from('exam_sessions')
-      .update({ finished: true })
-      .eq('id', session_id)
-      .then(({ error: finishError }) => {
-        if (finishError) console.error('Failed to mark exam session finished:', finishError.message);
-      });
+      throw new InternalServerErrorException(error.message);
+    }
+
+    void this.enqueueSubmissionPostProcessJob(data, answers, created_by);
 
     return data;
   }

@@ -37,6 +37,9 @@ const normalizeOptions = (options) => {
 };
 
 const StudentExamPage = () => {
+  const SUBMIT_TIMEOUT_MS = 30000;
+  const SUBMIT_RETRY_DELAY_MS = 1200;
+
   const { examId } = useParams();
   const navigate = useNavigate();
 
@@ -334,6 +337,39 @@ const StudentExamPage = () => {
     }
   };
 
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const isRetryableSubmitError = (err) => {
+    const status = err.response?.status;
+    return (
+      err.code === "ECONNABORTED" ||
+      err.code === "ETIMEDOUT" ||
+      !status ||
+      status >= 500
+    );
+  };
+
+  const submitExamWithRetry = async (payload) => {
+    try {
+      return await api.post(`/exam-submissions/${examId}`, payload, {
+        timeout: SUBMIT_TIMEOUT_MS,
+      });
+    } catch (err) {
+      if (!isRetryableSubmitError(err)) throw err;
+
+      Swal.update({
+        title: "Mencoba mengirim ulang...",
+        text: "Koneksi sempat terganggu. Sistem sedang memastikan jawaban terkirim.",
+      });
+      Swal.showLoading();
+
+      await wait(SUBMIT_RETRY_DELAY_MS);
+      return api.post(`/exam-submissions/${examId}`, payload, {
+        timeout: SUBMIT_TIMEOUT_MS,
+      });
+    }
+  };
+
   const handleSubmit = async () => {
     // 🔹 Tampilkan konfirmasi
     const result = await Swal.fire({
@@ -377,7 +413,7 @@ const StudentExamPage = () => {
         sessionId: sessionId,
       };
 
-      await api.post(`/exam-submissions/${examId}`, payload);
+      await submitExamWithRetry(payload);
 
       // Stop recording + exit fullscreen
       if (document.fullscreenElement) await document.exitFullscreen();
@@ -398,7 +434,7 @@ const StudentExamPage = () => {
       navigate("/student/exam");
     } catch (err) {
       console.error("Submit error:", err);
-      Swal.fire("Error", "Gagal menyimpan jawaban", "error");
+      Swal.fire("Error", err.userMessage || "Gagal menyimpan jawaban", "error");
     } finally {
       setSubmitting(false);
     }

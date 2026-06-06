@@ -4,6 +4,7 @@ import { ExamStudentsService } from './exam-student.service';
 import { ExamSubmissionService } from './exam-submission.service';
 import { ExamSessionService } from './exam-session.service';
 import { TeacherExamsService } from './teacher-exam.service';
+import { ExamSubmissionJobWorker } from './exam-submission-job.worker';
 import { ExamController } from './exam.controller';
 import { ExamSubmissionController } from './exam-submission.controller';
 import { ExamSessionController } from './exam-session.controller';
@@ -16,6 +17,7 @@ import { SupabaseModule } from '../supabase/supabase.module';
     ExamService,
     ExamStudentsService,
     ExamSubmissionService,
+    ExamSubmissionJobWorker,
     ExamSessionService,
     TeacherExamsService,
   ],
