@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import Sidebar from "../components/Sidebar";
 import api from "../api/axiosConfig";
 import SubjectSelect from "../components/DropdownSubject";
+import * as XLSX from "xlsx";
 
 const toCsv = (rows) => {
   if (!rows.length) return "";
@@ -32,6 +33,7 @@ const Reports = () => {
   const [examRows, setExamRows] = useState([]);
   const [submissionRows, setSubmissionRows] = useState([]);
   const [subjectRows, setSubjectRows] = useState([]);
+  const [studentRows, setStudentRows] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const params = useMemo(() => {
@@ -46,15 +48,17 @@ const Reports = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [examRes, submissionRes, subjectRes] = await Promise.all([
+      const [examRes, submissionRes, subjectRes, studentRes] = await Promise.all([
         api.get("/reports/exam-performance", { params }),
         api.get("/reports/submission-list", { params }),
         api.get("/reports/subject-summary", { params }),
+        api.get("/reports/student-score-summary", { params }),
       ]);
 
       setExamRows(examRes.data || []);
       setSubmissionRows(submissionRes.data || []);
       setSubjectRows(subjectRes.data || []);
+      setStudentRows(studentRes.data || []);
     } finally {
       setLoading(false);
     }
@@ -64,7 +68,14 @@ const Reports = () => {
     fetchData();
   }, [params]);
 
-  const activeRows = activeTab === "exam" ? examRows : activeTab === "submission" ? submissionRows : subjectRows;
+  const activeRows =
+    activeTab === "exam"
+      ? examRows
+      : activeTab === "submission"
+        ? submissionRows
+        : activeTab === "subject"
+          ? subjectRows
+          : studentRows;
 
   const normalizedRows = useMemo(() => {
     if (activeTab === "exam") {
@@ -93,17 +104,48 @@ const Reports = () => {
     return subjectRows.map((row) => ({
       mapel: row.subject,
       kelas: row.class_id,
+      total_siswa: row.totalStudents,
+      total_ujian: row.totalExams,
       total_submission: row.totalSubmissions,
-      rata_rata: Number(row.averageScore || 0).toFixed(2),
+      sudah_dinilai: row.scoredSubmissions,
+      belum_dinilai: row.unscoredSubmissions,
+      rata_rata: row.averageScore == null ? "-" : Number(row.averageScore).toFixed(2),
+      nilai_tertinggi: row.highestScore ?? "-",
+      nilai_terendah: row.lowestScore ?? "-",
+      lulus: row.passedCount,
+      belum_lulus: row.failedCount,
     }));
-  }, [activeTab, examRows, submissionRows, subjectRows]);
+
+    return studentRows.map((row) => ({
+      siswa: row.student,
+      nis_nik: row.userid,
+      mapel_diikuti: row.subjects || "-",
+      total_mapel: row.totalSubjects,
+      total_ujian: row.totalExams,
+      total_submission: row.totalSubmissions,
+      sudah_dinilai: row.scoredSubmissions,
+      belum_dinilai: row.unscoredSubmissions,
+      rata_rata: row.averageScore == null ? "-" : Number(row.averageScore).toFixed(2),
+      nilai_tertinggi: row.highestScore ?? "-",
+      nilai_terendah: row.lowestScore ?? "-",
+      lulus: row.passedCount,
+      belum_lulus: row.failedCount,
+    }));
+  }, [activeTab, examRows, submissionRows, subjectRows, studentRows]);
 
   const exportCsv = () => {
     downloadFile(toCsv(normalizedRows), `report-${activeTab}.csv`, "text/csv;charset=utf-8;");
   };
 
   const exportExcel = () => {
-    downloadFile(toCsv(normalizedRows), `report-${activeTab}.xls`, "application/vnd.ms-excel");
+    const worksheet = XLSX.utils.json_to_sheet(normalizedRows.length ? normalizedRows : [{ data: "Tidak ada data" }]);
+    worksheet["!cols"] = Object.keys(normalizedRows[0] || { data: "" }).map((key) => ({
+      wch: Math.max(14, key.length + 4),
+    }));
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+    XLSX.writeFile(workbook, `report-${activeTab}.xlsx`);
   };
 
   return (
@@ -129,10 +171,11 @@ const Reports = () => {
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
           <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:flex">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 lg:flex">
               <button className={`module-action-btn ${activeTab === "exam" ? "btn-primary text-white" : "bg-slate-100 text-slate-700"}`} onClick={() => setActiveTab("exam")}>Report Ujian</button>
               <button className={`module-action-btn ${activeTab === "submission" ? "btn-primary text-white" : "bg-slate-100 text-slate-700"}`} onClick={() => setActiveTab("submission")}>Report Submission</button>
               <button className={`module-action-btn ${activeTab === "subject" ? "btn-primary text-white" : "bg-slate-100 text-slate-700"}`} onClick={() => setActiveTab("subject")}>Report Mapel</button>
+              <button className={`module-action-btn ${activeTab === "student" ? "btn-primary text-white" : "bg-slate-100 text-slate-700"}`} onClick={() => setActiveTab("student")}>Report Nilai Siswa</button>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:flex">
               <button className="module-action-btn bg-slate-100 text-slate-700" onClick={exportCsv}>Export CSV</button>
@@ -190,7 +233,7 @@ const Reports = () => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <h4 className="font-bold text-slate-800 leading-tight truncate">
-                            {row.judul || row.ujian || row.mapel || "Laporan"}
+                            {row.judul || row.ujian || row.mapel || row.siswa || "Laporan"}
                           </h4>
                           <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-semibold">
                             {row.tipe || row.kelas || "-"}
@@ -200,7 +243,7 @@ const Reports = () => {
 
                       <div className="grid grid-cols-2 gap-y-4 gap-x-2 pt-4 border-t border-slate-50 relative z-10">
                         {Object.entries(row).map(([key, val], i) => (
-                          key !== "judul" && key !== "ujian" && key !== "mapel" && key !== "tipe" && key !== "kelas" && (
+                          key !== "judul" && key !== "ujian" && key !== "mapel" && key !== "siswa" && key !== "tipe" && key !== "kelas" && (
                             <div key={i}>
                               <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1">{key.replaceAll("_", " ")}</p>
                               <p className="text-xs font-semibold text-slate-700 truncate">{String(val ?? "-")}</p>

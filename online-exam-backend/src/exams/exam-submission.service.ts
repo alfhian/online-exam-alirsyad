@@ -14,11 +14,19 @@ export class ExamSubmissionService {
   constructor(private readonly supabase: SupabaseClient) {}
 
   private hasSubmittedAnswers(value: unknown): boolean {
-    if (Array.isArray(value)) return value.length > 0;
+    if (Array.isArray(value)) {
+      return value.some((answer) => {
+        if (!answer || typeof answer !== 'object') return false;
+        if (!('question_id' in answer)) return false;
+        if (!('answer' in answer)) return false;
+        return answer.answer !== undefined && answer.answer !== null;
+      });
+    }
+
     if (typeof value === 'string') {
       try {
         const parsed = JSON.parse(value);
-        return Array.isArray(parsed) ? parsed.length > 0 : Boolean(parsed);
+        return this.hasSubmittedAnswers(parsed);
       } catch {
         return value.trim().length > 0;
       }
@@ -149,33 +157,36 @@ export class ExamSubmissionService {
         *,
         exam:exams(*, subject:subjects(*))
       `,
-        { count: 'exact' },
       )
       .eq('student_id', studentId);
 
     const keyword = search?.trim().toLowerCase();
 
-    const { data, count, error } = await query
-      .order(sort, { ascending: order === 'asc' })
-      .range(offset, offset + limit - 1);
+    const { data, error } = await query.order(sort, { ascending: order === 'asc' });
 
     if (error) throw new InternalServerErrorException(error.message);
 
+    const answeredSubmissions = (data || []).filter((submission: any) =>
+      this.hasSubmittedAnswers(submission.answers),
+    );
+
     const filteredData = keyword
-      ? (data || []).filter((submission: any) =>
+      ? answeredSubmissions.filter((submission: any) =>
           [submission.exam?.title, submission.exam?.type].some((value) =>
             String(value ?? '').toLowerCase().includes(keyword),
           ),
         )
-      : (data || []);
+      : answeredSubmissions;
+
+    const paginatedData = filteredData.slice(offset, offset + limit);
 
     return {
-      data: filteredData,
+      data: paginatedData,
       meta: {
-        total: keyword ? filteredData.length : count || 0,
+        total: filteredData.length,
         page,
         limit,
-        totalPages: Math.ceil((keyword ? filteredData.length : count || 0) / limit),
+        totalPages: Math.ceil(filteredData.length / limit),
       },
     };
   }
@@ -197,38 +208,44 @@ export class ExamSubmissionService {
 
     if (error || !data) throw new NotFoundException('Submission tidak ditemukan');
 
-    const answerList = data.answers || [];
-    if (!answerList.length) return data;
-
-    const questionIds = Array.from(new Set(answerList.map((answer) => answer.question_id)));
-    if (questionIds.length === 0) return data;
+    const answerList = Array.isArray(data.answers) ? data.answers : [];
+    const answerByQuestionId = new Map<string, any>(
+      answerList.map((answer) => [String(answer.question_id), answer]),
+    );
 
     const { data: questions, error: qError } = await this.supabase
       .from('questionnaires')
       .select('*')
-      .in('id', questionIds);
+      .eq('exam_id', data.exam_id)
+      .is('deleted_at', null)
+      .order('index', { ascending: true });
 
     if (qError) throw new InternalServerErrorException(qError.message);
 
-    const questionById = new Map((questions || []).map((question) => [question.id, question]));
-    data.answers = answerList.map((answer) => ({
-      ...answer,
-      question: questionById.get(answer.question_id) || null,
-    }));
+    data.answers = (questions || []).map((question) => {
+      const answer = answerByQuestionId.get(String(question.id));
+      return {
+        ...(answer || {}),
+        question_id: question.id,
+        answer: answer?.answer ?? '',
+        is_correct: answer?.is_correct ?? (question.type === 'multiple_choice' ? false : null),
+        question,
+      };
+    });
 
     return data;
   }
 
   async hasSubmitted(examId: string, studentId: string) {
-    const { count, error } = await this.supabase
+    const { data, error } = await this.supabase
       .from('exam_submissions')
-      .select('id', { count: 'exact', head: true })
+      .select('answers')
       .eq('exam_id', examId)
       .eq('student_id', studentId);
 
     if (error) throw new InternalServerErrorException(error.message);
 
-    return { submitted: (count || 0) > 0 };
+    return { submitted: (data || []).some((submission) => this.hasSubmittedAnswers(submission.answers)) };
   }
 
   async submit(dto: CreateExamSubmissionDto) {

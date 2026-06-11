@@ -26,6 +26,28 @@ export class ExamService {
     return String(value ?? '').trim().slice(0, 10);
   }
 
+  private hasSubmittedAnswers(value: unknown): boolean {
+    if (Array.isArray(value)) {
+      return value.some((answer) => {
+        if (!answer || typeof answer !== 'object') return false;
+        if (!('question_id' in answer)) return false;
+        if (!('answer' in answer)) return false;
+        return answer.answer !== undefined && answer.answer !== null;
+      });
+    }
+
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return this.hasSubmittedAnswers(parsed);
+      } catch {
+        return value.trim().length > 0;
+      }
+    }
+
+    return Boolean(value && typeof value === 'object' && Object.keys(value as object).length > 0);
+  }
+
   private sortExamRows(exams: any[], sort: string, order: 'asc' | 'desc'): any[] {
     const direction = order === 'asc' ? 1 : -1;
 
@@ -458,12 +480,16 @@ export class ExamService {
     if (examIdsFound.length > 0) {
       const { data: submissions, error: submissionsError } = await this.supabase
         .from('exam_submissions')
-        .select('exam_id')
+        .select('exam_id, answers')
         .eq('student_id', studentId)
         .in('exam_id', examIdsFound);
 
       if (submissionsError) throw new InternalServerErrorException(submissionsError.message);
-      submittedExamIds = new Set((submissions || []).map(s => s.exam_id));
+      submittedExamIds = new Set(
+        (submissions || [])
+          .filter((submission) => this.hasSubmittedAnswers(submission.answers))
+          .map(s => s.exam_id),
+      );
     }
 
     const finalData = (exams || []).map(e => ({

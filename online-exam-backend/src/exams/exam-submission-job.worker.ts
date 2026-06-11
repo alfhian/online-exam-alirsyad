@@ -149,19 +149,27 @@ export class ExamSubmissionJobWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   private scoreAnswers(answers: any[], questions: any[]) {
-    const questionById = new Map((questions || []).map((question) => [String(question.id), question]));
     const mcQuestions = (questions || []).filter((question) => question.type === 'multiple_choice');
     const essayQuestions = (questions || []).filter((question) => question.type === 'essay');
     const multipleChoiceIds = new Set(mcQuestions.map((question) => String(question.id)));
+    const answerByQuestionId = new Map(
+      (answers || []).map((answer) => [String(answer.question_id), answer]),
+    );
 
-    const scoredAnswers = answers.map((answer) => {
-      const question = questionById.get(String(answer.question_id));
+    const scoredAnswers = (questions || []).map((question) => {
+      const submittedAnswer = answerByQuestionId.get(String(question.id));
+      const answerValue = submittedAnswer?.answer ?? '';
       const isCorrect =
-        question?.type === 'multiple_choice'
-          ? String(answer.answer).trim().toLowerCase() === String(question.answer).trim().toLowerCase()
+        question.type === 'multiple_choice'
+          ? String(answerValue).trim().toLowerCase() === String(question.answer).trim().toLowerCase()
           : null;
 
-      return { ...answer, is_correct: isCorrect };
+      return {
+        ...(submittedAnswer || {}),
+        question_id: question.id,
+        answer: answerValue,
+        is_correct: isCorrect,
+      };
     });
 
     const totalScore =

@@ -283,6 +283,33 @@ export class UsersService {
     return data;
   }
 
+  async bulkDeleteUsers(ids: string[], deletedBy: string) {
+    const uniqueIds = [...new Set((ids || []).map((id) => String(id)).filter(Boolean))];
+
+    if (uniqueIds.length === 0) {
+      throw new BadRequestException('Pilih minimal satu pengguna untuk dihapus.');
+    }
+
+    const { data, error } = await this.supabase
+      .from('users')
+      .update({
+        deleted_at: new Date(),
+        deleted_by: deletedBy,
+        is_active: false,
+      })
+      .in('id', uniqueIds)
+      .is('deleted_at', null)
+      .select('id');
+
+    if (error) throw new InternalServerErrorException(error.message);
+
+    return {
+      success: true,
+      count: data?.length || 0,
+      message: `Berhasil menghapus ${data?.length || 0} pengguna.`,
+    };
+  }
+
   // RANDOM STRING
   private generateRandomString(length = 8): string {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';

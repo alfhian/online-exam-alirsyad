@@ -7,9 +7,9 @@ import LoadingButton from "../components/LoadingButton";
 
 /* ---------------- Helper ---------------- */
 
-// 🔊 Alarm Sound for Fraud Detection
-const alarm = new Audio("https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3");
-alarm.loop = true;
+const START_TIMEOUT_MS = 30000;
+const SUBMIT_TIMEOUT_MS = 30000;
+const SUBMIT_RETRY_DELAY_MS = 1200;
 
 const formatTime = (seconds) => {
   const safeSeconds = Math.max(0, Number(seconds) || 0);
@@ -37,9 +37,6 @@ const normalizeOptions = (options) => {
 };
 
 const StudentExamPage = () => {
-  const SUBMIT_TIMEOUT_MS = 30000;
-  const SUBMIT_RETRY_DELAY_MS = 1200;
-
   const { examId } = useParams();
   const navigate = useNavigate();
 
@@ -54,17 +51,29 @@ const StudentExamPage = () => {
   const [timeLeft, setTimeLeft] = useState(0);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  const [startMessage, setStartMessage] = useState("Memulai ujian...");
   const [submitting, setSubmitting] = useState(false);
   const [violationCount, setViolationCount] = useState(0);
 
   // Refs
   const submittingRef = useRef(false);
+  const internalNavigationRef = useRef(false);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
 
   useEffect(() => {
     submittingRef.current = submitting;
   }, [submitting]);
+
+  const allowInternalNavigation = () => {
+    internalNavigationRef.current = true;
+    window.__ALLOW_INTERNAL_NAVIGATION__ = true;
+  };
+
+  const blockInternalNavigation = () => {
+    internalNavigationRef.current = false;
+    window.__ALLOW_INTERNAL_NAVIGATION__ = false;
+  };
 
   /* ---------------- Fetch Exam ---------------- */
   useEffect(() => {
@@ -140,6 +149,7 @@ const StudentExamPage = () => {
         });
         currentAlarm.pause();
         localStorage.removeItem("token");
+        allowInternalNavigation();
         window.location.href = "/"; // Force hard redirect
         return;
       }
@@ -170,6 +180,7 @@ const StudentExamPage = () => {
       }
     };
     const handleBeforeUnload = (e) => {
+      if (internalNavigationRef.current || window.__ALLOW_INTERNAL_NAVIGATION__) return;
       e.preventDefault();
       e.returnValue = "";
     };
@@ -299,8 +310,10 @@ const StudentExamPage = () => {
       };
 
       mediaRecorder.start(10000);
+      return true;
     } catch (err) {
       console.error("❌ Gagal akses kamera:", err);
+      return false;
     }
   }, []);
 
@@ -309,30 +322,72 @@ const StudentExamPage = () => {
     setStudentAnswers((prev) => ({ ...prev, [questionId]: answer }));
   };
 
+  const requestFullscreenIfAvailable = async () => {
+    const elem = document.documentElement;
+    try {
+      if (document.fullscreenElement) return true;
+      if (elem.requestFullscreen) await elem.requestFullscreen();
+      else if (elem.webkitRequestFullscreen) await elem.webkitRequestFullscreen();
+      else if (elem.msRequestFullscreen) await elem.msRequestFullscreen();
+      else return false;
+      return true;
+    } catch (err) {
+      console.warn("Fullscreen tidak dapat dimulai otomatis:", err);
+      return false;
+    }
+  };
+
   const handleStart = async () => {
     if (starting) return;
     try {
       setStarting(true);
-      const { data } = await api.post(`/exam-sessions/${examId}/start`, {});
+      setStartMessage("Menyiapkan sesi ujian...");
+      const { data } = await api.post(`/exam-sessions/${examId}/start`, {}, {
+        timeout: START_TIMEOUT_MS,
+        skipAuthRedirect: true,
+      });
 
       setSessionId(data.id);
       setStarted(true);
 
       // 🔹 Robust Fullscreen Request
-      const elem = document.documentElement;
-      if (elem.requestFullscreen) {
-        await elem.requestFullscreen();
-      } else if (elem.webkitRequestFullscreen) { /* Safari */
-        await elem.webkitRequestFullscreen();
-      } else if (elem.msRequestFullscreen) { /* IE11 */
-        await elem.msRequestFullscreen();
+      setStartMessage("Mengaktifkan mode fullscreen...");
+      const fullscreenStarted = await requestFullscreenIfAvailable();
+      if (!fullscreenStarted) {
+        Swal.fire({
+          icon: "info",
+          title: "Fullscreen Manual",
+          text: "Jika tombol fullscreen muncul, tekan tombol tersebut untuk kembali ke mode ujian.",
+          timer: 2500,
+          showConfirmButton: false,
+        });
       }
 
-      startRecording(data.id);
+      setStartMessage("Mengaktifkan kamera...");
+      const recordingStarted = await startRecording(data.id);
+      if (!recordingStarted) {
+        Swal.fire({
+          icon: "warning",
+          title: "Kamera Tidak Aktif",
+          text: "Ujian tetap dimulai, tetapi rekaman pengawasan tidak aktif. Silakan izinkan kamera/mikrofon jika browser meminta izin.",
+          confirmButtonText: "OK",
+        });
+      }
     } catch (err) {
       console.error("Gagal mulai ujian:", err);
-      Swal.fire("Error", "Tidak bisa memulai sesi ujian", "error");
+      const message =
+        err.response?.status === 401
+          ? "Sesi login Anda sudah berakhir. Silakan login kembali sebelum memulai ujian."
+          : err.userMessage || "Tidak bisa memulai sesi ujian. Periksa koneksi lalu coba lagi.";
+
+      await Swal.fire("Error", message, "error");
+      if (err.response?.status === 401) {
+        allowInternalNavigation();
+        localStorage.removeItem("token");
+        navigate("/");
+      }
     } finally {
+      setStartMessage("Memulai ujian...");
       setStarting(false);
     }
   };
@@ -396,6 +451,7 @@ const StudentExamPage = () => {
     }
 
     try {
+      submittingRef.current = true;
       setSubmitting(true);
 
       Swal.fire({
@@ -406,14 +462,16 @@ const StudentExamPage = () => {
       });
 
       const payload = {
-        answers: Object.entries(studentAnswers).map(([question_id, answer]) => ({
-          question_id,
-          answer,
+        answers: questions.map((question) => ({
+          question_id: question.id,
+          answer: studentAnswers[question.id] ?? "",
         })),
         sessionId: sessionId,
       };
 
       await submitExamWithRetry(payload);
+
+      allowInternalNavigation();
 
       // Stop recording + exit fullscreen
       if (document.fullscreenElement) await document.exitFullscreen();
@@ -434,8 +492,14 @@ const StudentExamPage = () => {
       navigate("/student/exam");
     } catch (err) {
       console.error("Submit error:", err);
+      if (err.response?.status === 401) {
+        allowInternalNavigation();
+      } else {
+        blockInternalNavigation();
+      }
       Swal.fire("Error", err.userMessage || "Gagal menyimpan jawaban", "error");
     } finally {
+      if (!internalNavigationRef.current) submittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -486,7 +550,7 @@ const StudentExamPage = () => {
           <LoadingButton
             onClick={handleStart}
             loading={starting}
-            loadingText="Memulai ujian..."
+            loadingText={startMessage}
             className="px-8 py-3 bg-blue-600 text-white text-lg font-semibold rounded-xl shadow-md hover:bg-blue-700 transition-all duration-200 transform hover:scale-105"
           >
             Mulai Ujian Sekarang 🎯

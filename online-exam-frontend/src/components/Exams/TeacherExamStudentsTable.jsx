@@ -4,8 +4,10 @@ import PropTypes from "prop-types";
 import formatDateOnly from "../../utils/formatDateOnly";
 import ActionMenu from "../ActionMenu";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
+import api from "../../api/axiosConfig";
 
-const TeacherExamStudentsTable = ({ data, searchParams, setSearchParams }) => {
+const TeacherExamStudentsTable = ({ data, searchParams, setSearchParams, onRefresh }) => {
   const navigate = useNavigate();
   const sort = searchParams.get("sort") || "created_at";
   const order = searchParams.get("order") || "desc";
@@ -34,6 +36,40 @@ const TeacherExamStudentsTable = ({ data, searchParams, setSearchParams }) => {
 
   const handleGrade = (submissionId) => {
     navigate(`/teacher-exam/submission/${submissionId}`);
+  };
+
+  const handleCancelSubmission = async (submissionId) => {
+    const result = await Swal.fire({
+      title: "Batalkan submission?",
+      text: "Jawaban dan sesi ujian siswa ini akan dihapus, lalu siswa bisa mengerjakan ulang.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Ya, batalkan",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#64748b",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      await api.delete(`/teacher-exams/submission/${submissionId}`);
+      await Swal.fire({
+        title: "Berhasil",
+        text: "Submission dibatalkan. Siswa bisa mengerjakan ujian ulang.",
+        icon: "success",
+        timer: 1800,
+        showConfirmButton: false,
+      });
+      onRefresh?.();
+    } catch (err) {
+      console.error("Cancel submission error:", err);
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || "Gagal membatalkan submission.",
+        "error",
+      );
+    }
   };
 
   return (
@@ -106,6 +142,7 @@ const TeacherExamStudentsTable = ({ data, searchParams, setSearchParams }) => {
                       itemId={submission.id}
                       menu="teacherExamSubmission"
                       onGrade={() => handleGrade(submission.id)}
+                      onCancelSubmission={handleCancelSubmission}
                     />
                   </td>
                 </tr>
@@ -147,6 +184,7 @@ const TeacherExamStudentsTable = ({ data, searchParams, setSearchParams }) => {
                     itemId={submission.id}
                     menu="teacherExamSubmission"
                     onGrade={() => handleGrade(submission.id)}
+                    onCancelSubmission={handleCancelSubmission}
                   />
                 </div>
               </div>
@@ -197,6 +235,7 @@ TeacherExamStudentsTable.propTypes = {
   data: PropTypes.array.isRequired,
   searchParams: PropTypes.object.isRequired,
   setSearchParams: PropTypes.func.isRequired,
+  onRefresh: PropTypes.func,
 };
 
 export default TeacherExamStudentsTable;

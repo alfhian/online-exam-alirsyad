@@ -52,6 +52,8 @@ const Users = () => {
   const [updating, setUpdating] = useState(false);
   const [updatingSiswa, setUpdatingSiswa] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState([]);
   const [generatingToken, setGeneratingToken] = useState(false);
   const [importing, setImporting] = useState(false);
 
@@ -84,6 +86,7 @@ const Users = () => {
       });
       setUsers(res.data?.data || []);
       setMeta(res.data?.meta || { total: 0 });
+      setSelectedUserIds([]);
     } catch (err) {
       console.error("Failed to fetch users:", err);
       MySwal.fire("Error", "Gagal mengambil data pengguna.", "error");
@@ -202,6 +205,38 @@ const Users = () => {
         }
       }
     });
+  };
+
+  const handleBulkDelete = async () => {
+    if (bulkDeleting || selectedUserIds.length === 0) return;
+
+    const result = await MySwal.fire({
+      title: "Hapus pengguna terpilih?",
+      text: `${selectedUserIds.length} pengguna akan dihapus (soft delete).`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Ya, hapus!",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "#d33",
+      reverseButtons: true,
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setBulkDeleting(true);
+      const res = await api.post(
+        "/users/bulk-delete",
+        { ids: selectedUserIds },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      MySwal.fire("Berhasil!", res.data?.message || "Pengguna terpilih berhasil dihapus.", "success");
+      fetchUsers();
+    } catch (err) {
+      MySwal.fire("Gagal!", err.response?.data?.message || "Gagal menghapus pengguna terpilih.", "error");
+    } finally {
+      setBulkDeleting(false);
+    }
   };
 
   const handleGenerateRandomToken = async () => {
@@ -795,6 +830,19 @@ const Users = () => {
         {/* Table Section */}
         <div className="mt-6 bg-white rounded-2xl shadow-md border border-gray-100 p-4 overflow-x-auto">
           <SearchBar value={search} />
+          {selectedUserIds.length > 0 && (
+            <div className="mt-4 flex flex-col gap-3 rounded-xl border border-rose-100 bg-rose-50 p-3 text-sm text-rose-700 sm:flex-row sm:items-center sm:justify-between">
+              <span className="font-semibold">{selectedUserIds.length} pengguna dipilih</span>
+              <LoadingButton
+                onClick={handleBulkDelete}
+                loading={bulkDeleting}
+                loadingText="Menghapus..."
+                className="rounded-lg bg-rose-600 px-4 py-2 text-white hover:bg-rose-700"
+              >
+                Hapus Terpilih
+              </LoadingButton>
+            </div>
+          )}
 
           {loading ? (
             <div className="mt-6 animate-pulse space-y-3">
@@ -817,6 +865,8 @@ const Users = () => {
                   onEdit={handleEditUser}
                   onEditSiswa={handleEditSiswa}
                   onDelete={handleDelete}
+                  selectedIds={selectedUserIds}
+                  onSelectionChange={setSelectedUserIds}
                 />
               </div>
 

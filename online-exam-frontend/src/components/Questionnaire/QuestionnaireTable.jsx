@@ -5,14 +5,20 @@ import PropTypes from "prop-types";
 import RichTextRenderer from "../RichTextRenderer";
 
 const QuestionnaireTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit, onDelete }) => {
-  const sort = searchParams.get("sort") || "question";
+  const sort = searchParams.get("sort") || "index";
   const order = searchParams.get("order") || "asc";
 
   const handleSort = (key) => {
     const currentSort = searchParams.get("sort");
     const currentOrder = searchParams.get("order") || "asc";
     const newOrder = currentSort === key && currentOrder === "asc" ? "desc" : "asc";
-    setSearchParams({ sort: key, order: newOrder, page: "1" });
+    setSearchParams({
+      search: searchParams.get("search") || "",
+      sort: key,
+      order: newOrder,
+      page: "1",
+      limit: searchParams.get("limit") || "10",
+    });
   };
 
   const renderSortIndicator = (key) => {
@@ -32,7 +38,12 @@ const QuestionnaireTable = ({ data, onRefresh, searchParams, setSearchParams, on
           <thead className="bg-gradient-to-r from-emerald-50 to-teal-100 text-gray-700">
             <tr className="text-sm font-semibold">
               <th className="px-4 py-3 text-center border-b min-w-[60px]">No</th>
-              <th className="px-4 py-3 text-center border-b min-w-[60px]">No Urut</th>
+              <th
+                className="px-4 py-3 text-center cursor-pointer select-none border-b min-w-[90px] hover:text-emerald-700"
+                onClick={() => handleSort("index")}
+              >
+                No Urut {renderSortIndicator("index")}
+              </th>
               <th
                 className="px-4 py-3 text-center cursor-pointer select-none border-b min-w-[300px] hover:text-emerald-700"
                 onClick={() => handleSort("question")}

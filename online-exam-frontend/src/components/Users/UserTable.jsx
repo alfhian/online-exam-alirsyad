@@ -9,7 +9,17 @@ import api from "../../api/axiosConfig";
 
 const MySwal = withReactContent(Swal);
 
-const UserTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit, onEditSiswa, onDelete }) => {
+const UserTable = ({
+  data,
+  onRefresh,
+  searchParams,
+  setSearchParams,
+  onEdit,
+  onEditSiswa,
+  onDelete,
+  selectedIds = [],
+  onSelectionChange,
+}) => {
   const sort = searchParams.get("sort") || "name";
   const order = searchParams.get("order") || "asc";
   const page = Number(searchParams.get("page")) || 1;
@@ -65,6 +75,23 @@ const UserTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit, onE
     );
   };
 
+  const pageIds = Array.isArray(data) ? data.map((user) => user.id) : [];
+  const isAllSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+
+  const toggleOne = (id) => {
+    if (!onSelectionChange) return;
+    onSelectionChange(
+      selectedIds.includes(id)
+        ? selectedIds.filter((selectedId) => selectedId !== id)
+        : [...selectedIds, id]
+    );
+  };
+
+  const toggleAll = () => {
+    if (!onSelectionChange) return;
+    onSelectionChange(isAllSelected ? selectedIds.filter((id) => !pageIds.includes(id)) : [...new Set([...selectedIds, ...pageIds])]);
+  };
+
   return (
     <div className="font-poppins">
       {/* 🔹 Desktop Table View */}
@@ -72,6 +99,14 @@ const UserTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit, onE
         <table className="w-full text-sm text-slate-700">
           <thead className="bg-emerald-50 text-emerald-700 uppercase text-[10px] font-bold tracking-wider">
             <tr>
+              <th className="px-4 py-2 text-center border-b min-w-[48px]">
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  onChange={toggleAll}
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                />
+              </th>
               <th className="px-4 py-2 text-center border-b min-w-[60px]">No</th>
               <th
                 className="px-4 py-2 text-center border-b min-w-[120px] cursor-pointer select-none hover:text-emerald-700 transition-colors"
@@ -114,6 +149,14 @@ const UserTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit, onE
                   key={user.id}
                   className="hover:bg-emerald-50/50 transition-all duration-150 border-b last:border-none"
                 >
+                  <td className="px-4 py-2.5 text-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(user.id)}
+                      onChange={() => toggleOne(user.id)}
+                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                  </td>
                   <td className="px-4 py-2.5 text-center text-slate-500">{(page - 1) * pageSize + index + 1}</td>
                   <td className="px-4 py-2.5 text-center text-slate-500">{user.userid}</td>
                   <td className="px-4 py-2.5 font-medium text-slate-800">
@@ -158,7 +201,7 @@ const UserTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit, onE
               ))
             ) : (
               <tr>
-                <td colSpan="7" className="px-4 py-12 text-center text-slate-400 bg-slate-50/30 italic">
+                <td colSpan="8" className="px-4 py-12 text-center text-slate-400 bg-slate-50/30 italic">
                   Tidak ada data pengguna.
                 </td>
               </tr>
@@ -177,6 +220,12 @@ const UserTable = ({ data, onRefresh, searchParams, setSearchParams, onEdit, onE
             >
               <div className="flex justify-between items-start relative z-10">
                 <div className="flex gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(user.id)}
+                    onChange={() => toggleOne(user.id)}
+                    className="mt-3 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                  />
                   <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
                     user.role === 'ADMIN' ? 'bg-rose-50 text-rose-600' : user.role === 'GURU' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'
                   }`}>
@@ -255,6 +304,8 @@ UserTable.propTypes = {
   onEdit: PropTypes.func,
   onEditSiswa: PropTypes.func,
   onDelete: PropTypes.func,
+  selectedIds: PropTypes.array,
+  onSelectionChange: PropTypes.func,
 };
 
 export default UserTable;

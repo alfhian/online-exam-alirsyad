@@ -9,6 +9,7 @@ import {
   PlayIcon, 
   EyeIcon, 
   CheckBadgeIcon,
+  ArrowPathIcon,
   TrashIcon 
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
@@ -23,6 +24,7 @@ export default function ActionMenu({
   onEditSiswa,
   onStart,
   onDelete,
+  onCancelSubmission,
 }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -149,7 +151,16 @@ export default function ActionMenu({
 
               {/* 🔧 Guru memberi nilai */}
               {menu === "teacherExamSubmission" && (
-                <ActionItem onClick={handleScoring} icon={CheckBadgeIcon} label="Beri Nilai" />
+                <>
+                  <ActionItem onClick={handleScoring} icon={CheckBadgeIcon} label="Beri Nilai" />
+                  {onCancelSubmission && (
+                    <ActionItem
+                      onClick={() => onCancelSubmission(itemId)}
+                      icon={ArrowPathIcon}
+                      label="Ujian Ulang"
+                    />
+                  )}
+                </>
               )}
 
               {/* 🗑️ Hapus (untuk menu yang mendukung) */}

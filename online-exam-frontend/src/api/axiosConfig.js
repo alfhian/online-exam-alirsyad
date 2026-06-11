@@ -50,7 +50,7 @@ axiosInstance.interceptors.response.use(
     error.userMessage = friendlyMessage;
     error.message = friendlyMessage;
 
-    if (status === 401 && !isLoginRequest(error.config)) {
+    if (status === 401 && !isLoginRequest(error.config) && !error.config?.skipAuthRedirect) {
       localStorage.removeItem("token");
       if (window.location.pathname !== "/") {
         Swal.fire({
@@ -59,6 +59,7 @@ axiosInstance.interceptors.response.use(
           icon: "warning",
           confirmButtonText: "OK",
         }).then(() => {
+          window.__ALLOW_INTERNAL_NAVIGATION__ = true;
           window.location.href = "/";
         });
       }

@@ -77,10 +77,12 @@ const Questionnaire = () => {
   const [updating, setUpdating] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const search = searchParams.get("search") || "";
-  const sort = searchParams.get("sort") || "question";
+  const sort = searchParams.get("sort") || "index";
   const order = searchParams.get("order") || "asc";
   const page = Number(searchParams.get("page")) || 1;
-  const pageSize = 10;
+  const pageSizeParam = searchParams.get("limit") || "10";
+  const isViewAll = pageSizeParam === "all";
+  const pageSize = isViewAll ? 10000 : Number(pageSizeParam) || 10;
 
   const [formData, setFormData] = useState({
     question: "",
@@ -147,7 +149,7 @@ const Questionnaire = () => {
 
   useEffect(() => {
     fetchQuestionnaires();
-  }, [search, sort, order, page]);
+  }, [search, sort, order, page, pageSize]);
 
   const handleSubmit = async () => {
     if (saving) return;
@@ -340,30 +342,53 @@ const Questionnaire = () => {
                 onDelete={handleDelete}
               />
 
-              <div className="flex items-center justify-between mt-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-6">
                 <div className="text-sm text-gray-500">
                   {meta.total > 0 && (
                     <span>
                       Menampilkan{" "}
                       <strong>{(page - 1) * pageSize + 1}</strong> -{" "}
-                      <strong>{Math.min(page * pageSize, meta.total)}</strong>{" "}
+                      <strong>{isViewAll ? meta.total : Math.min(page * pageSize, meta.total)}</strong>{" "}
                       dari <strong>{meta.total}</strong> pertanyaan
                     </span>
                   )}
                 </div>
-                <Pagination
-                  current={page}
-                  total={meta.total}
-                  pageSize={pageSize}
-                  onPageChange={(p) =>
-                    setSearchParams({
-                      search,
-                      sort,
-                      order,
-                      page: p.toString(),
-                    })
-                  }
-                />
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <select
+                    value={pageSizeParam}
+                    onChange={(event) =>
+                      setSearchParams({
+                        search,
+                        sort,
+                        order,
+                        page: "1",
+                        limit: event.target.value,
+                      })
+                    }
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  >
+                    <option value="10">10 / halaman</option>
+                    <option value="25">25 / halaman</option>
+                    <option value="50">50 / halaman</option>
+                    <option value="all">Tampilkan semua</option>
+                  </select>
+                  {!isViewAll && (
+                    <Pagination
+                      current={page}
+                      total={meta.total}
+                      pageSize={pageSize}
+                      onPageChange={(p) =>
+                        setSearchParams({
+                          search,
+                          sort,
+                          order,
+                          page: p.toString(),
+                          limit: pageSizeParam,
+                        })
+                      }
+                    />
+                  )}
+                </div>
               </div>
             </>
           )}

@@ -153,6 +153,16 @@ export class UsersController {
   }
 
   // ============================
+  // BULK DELETE USERS
+  // ============================
+  @Post('bulk-delete')
+  @Roles(Role.ADMIN)
+  async bulkDelete(@Body('ids') ids: string[], @Req() req: Request) {
+    const deletedBy = (req as any)?.user?.sub ?? null;
+    return this.usersService.bulkDeleteUsers(ids, deletedBy);
+  }
+
+  // ============================
   // UPDATE USER
   // ============================
   @Put(':id')

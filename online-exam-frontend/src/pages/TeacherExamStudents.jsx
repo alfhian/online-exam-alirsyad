@@ -43,10 +43,7 @@ const TeacherExamStudents = () => {
       const metaInfo = res.data?.meta || { total: 0 };
       setSubmissions(list);
       setMeta(metaInfo);
-
-      if (list.length > 0 && list[0]?.exam?.title) {
-        setExamTitle(list[0].exam.title);
-      }
+      setExamTitle(metaInfo.exam?.title || list[0]?.exam?.title || "");
     } catch (err) {
       console.error("Fetch error:", err);
       MySwal.fire({
@@ -65,7 +62,7 @@ const TeacherExamStudents = () => {
   }, [search, sort, order, page]);
 
   return (
-    <Sidebar>
+    <Sidebar pageTitle={examTitle || "Daftar Siswa Ujian"}>
       <div className="module-shell">
           {/* Header */}
           <div className="module-header">

@@ -12,6 +12,12 @@ type ReportFilter = {
 export class ReportsService {
   constructor(private readonly supabase: SupabaseClient) {}
 
+  private getNumericScore(value: unknown): number | null {
+    if (value === null || value === undefined || value === '') return null;
+    const score = Number(value);
+    return Number.isFinite(score) ? score : null;
+  }
+
   private async getAllowedSubjectIds(user?: any) {
     if (String(user?.role || '').toUpperCase() !== 'GURU') return null;
 
@@ -140,28 +146,124 @@ export class ReportsService {
     const submissions = await this.getSubmissionList(filter, user);
 
     const grouped = submissions.reduce((acc: any, row: any) => {
+      const subjectId = row?.exams?.subjects?.id || row?.exams?.subject_id || 'unknown';
       const subjectName = row?.exams?.subjects?.name || 'Tanpa Mapel';
-      if (!acc[subjectName]) {
-        acc[subjectName] = {
+      const score = this.getNumericScore(row?.score);
+
+      if (!acc[subjectId]) {
+        acc[subjectId] = {
+          subjectId,
           subject: subjectName,
           class_id: row?.exams?.subjects?.class_id || '-',
           totalSubmissions: 0,
+          scoredSubmissions: 0,
+          unscoredSubmissions: 0,
+          totalStudents: new Set<string>(),
+          totalExams: new Set<string>(),
           totalScore: 0,
           averageScore: 0,
+          highestScore: null,
+          lowestScore: null,
+          passedCount: 0,
+          failedCount: 0,
         };
       }
 
-      acc[subjectName].totalSubmissions += 1;
-      acc[subjectName].totalScore += Number(row?.score || 0);
-      acc[subjectName].averageScore =
-        acc[subjectName].totalScore / acc[subjectName].totalSubmissions;
+      acc[subjectId].totalSubmissions += 1;
+      if (row?.student_id) acc[subjectId].totalStudents.add(row.student_id);
+      if (row?.exam_id) acc[subjectId].totalExams.add(row.exam_id);
+
+      if (score === null) {
+        acc[subjectId].unscoredSubmissions += 1;
+        return acc;
+      }
+
+      acc[subjectId].scoredSubmissions += 1;
+      acc[subjectId].totalScore += score;
+      acc[subjectId].averageScore =
+        acc[subjectId].totalScore / acc[subjectId].scoredSubmissions;
+      acc[subjectId].highestScore =
+        acc[subjectId].highestScore === null ? score : Math.max(acc[subjectId].highestScore, score);
+      acc[subjectId].lowestScore =
+        acc[subjectId].lowestScore === null ? score : Math.min(acc[subjectId].lowestScore, score);
+      if (score >= 75) acc[subjectId].passedCount += 1;
+      else acc[subjectId].failedCount += 1;
 
       return acc;
     }, {});
 
-    return Object.values(grouped).sort(
-      (a: any, b: any) => Number(b.averageScore) - Number(a.averageScore),
-    );
+    return Object.values(grouped)
+      .map((row: any) => ({
+        ...row,
+        totalStudents: row.totalStudents.size,
+        totalExams: row.totalExams.size,
+        averageScore: row.scoredSubmissions
+          ? Number(row.averageScore.toFixed(2))
+          : null,
+      }))
+      .sort((a: any, b: any) => Number(b.averageScore ?? -1) - Number(a.averageScore ?? -1));
+  }
+
+  async getStudentScoreSummary(filter: ReportFilter, user?: any) {
+    const submissions = await this.getSubmissionList(filter, user);
+
+    const grouped = submissions.reduce((acc: any, row: any) => {
+      const studentId = row?.student_id || 'unknown';
+      const score = this.getNumericScore(row?.score);
+
+      if (!acc[studentId]) {
+        acc[studentId] = {
+          studentId,
+          student: row?.users?.name || 'Tanpa Nama',
+          userid: row?.users?.userid || '-',
+          totalSubmissions: 0,
+          scoredSubmissions: 0,
+          unscoredSubmissions: 0,
+          totalScore: 0,
+          averageScore: 0,
+          highestScore: null,
+          lowestScore: null,
+          passedCount: 0,
+          failedCount: 0,
+          subjects: new Set<string>(),
+          exams: new Set<string>(),
+        };
+      }
+
+      acc[studentId].totalSubmissions += 1;
+      if (row?.exams?.subjects?.name) acc[studentId].subjects.add(row.exams.subjects.name);
+      if (row?.exam_id) acc[studentId].exams.add(row.exam_id);
+
+      if (score === null) {
+        acc[studentId].unscoredSubmissions += 1;
+        return acc;
+      }
+
+      acc[studentId].scoredSubmissions += 1;
+      acc[studentId].totalScore += score;
+      acc[studentId].averageScore =
+        acc[studentId].totalScore / acc[studentId].scoredSubmissions;
+      acc[studentId].highestScore =
+        acc[studentId].highestScore === null ? score : Math.max(acc[studentId].highestScore, score);
+      acc[studentId].lowestScore =
+        acc[studentId].lowestScore === null ? score : Math.min(acc[studentId].lowestScore, score);
+      if (score >= 75) acc[studentId].passedCount += 1;
+      else acc[studentId].failedCount += 1;
+
+      return acc;
+    }, {});
+
+    return Object.values(grouped)
+      .map((row: any) => ({
+        ...row,
+        totalSubjects: row.subjects.size,
+        totalExams: row.exams.size,
+        subjects: Array.from(row.subjects).join(', '),
+        averageScore: row.scoredSubmissions
+          ? Number(row.averageScore.toFixed(2))
+          : null,
+      }))
+      .sort((a: any, b: any) => Number(b.averageScore ?? -1) - Number(a.averageScore ?? -1));
   }
 
   async getDashboardCharts(user: any) {

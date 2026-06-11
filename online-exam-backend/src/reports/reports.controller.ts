@@ -44,6 +44,17 @@ export class ReportsController {
     return this.reportsService.getSubjectSummary({ from, to, subjectId, examType }, req.user);
   }
 
+  @Get('student-score-summary')
+  getStudentScoreSummary(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('subjectId') subjectId?: string,
+    @Query('examType') examType?: string,
+    @Req() req?: any,
+  ) {
+    return this.reportsService.getStudentScoreSummary({ from, to, subjectId, examType }, req.user);
+  }
+
   @Get('dashboard-charts')
   getDashboardCharts(@Req() req: any) {
     const user = req.user;

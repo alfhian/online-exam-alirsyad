@@ -7,6 +7,7 @@ import {
   UseGuards,
   Param,
   Patch,
+  Delete,
   Body,
   Req,
 } from '@nestjs/common';
@@ -87,6 +88,20 @@ export class TeacherExamsController {
         body.totalScore,
         req.user,
       );
+    } catch (err: any) {
+      if (err instanceof HttpException) throw err;
+      throw new InternalServerErrorException(err.message);
+    }
+  }
+
+  /**
+   * DELETE /teacher-exams/submission/:submissionId
+   * Batalkan submission siswa agar bisa mengerjakan ulang.
+   */
+  @Delete('submission/:submissionId')
+  async cancelSubmission(@Param('submissionId') submissionId: string, @Req() req: any) {
+    try {
+      return await this.teacherExamService.cancelSubmission(submissionId, req.user);
     } catch (err: any) {
       if (err instanceof HttpException) throw err;
       throw new InternalServerErrorException(err.message);

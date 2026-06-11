@@ -1,4 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  HttpException,
+  Injectable,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { ExamSubmission } from './entities/exam-submission.entity';
 import { Exam } from './entities/exam.entity';
@@ -23,20 +30,22 @@ export class TeacherExamsService {
   }
 
   private async assertTeacherCanAccessExam(examId: string, user?: any) {
-    if (String(user?.role || '').toUpperCase() !== 'GURU') return;
-
     const { data: exam, error } = await this.supabase
       .from('exams')
-      .select('id, subject:subjects(teacher_id)')
+      .select('id, title, subject_id, subject:subjects(id, name, class_id, teacher_id)')
       .eq('id', examId)
+      .is('deleted_at', null)
       .single();
 
     if (error || !exam) throw new NotFoundException('Exam not found');
+    if (String(user?.role || '').toUpperCase() !== 'GURU') return exam;
 
     const subject = Array.isArray(exam.subject) ? exam.subject[0] : exam.subject;
     if (subject?.teacher_id !== user.sub) {
-      throw new BadRequestException('Anda tidak memiliki akses ke ujian ini');
+      throw new ForbiddenException('Anda tidak memiliki akses ke ujian ini');
     }
+
+    return exam;
   }
 
   /**
@@ -144,7 +153,7 @@ export class TeacherExamsService {
     const to = from + limit - 1;
 
     try {
-      await this.assertTeacherCanAccessExam(examId, user);
+      const exam = await this.assertTeacherCanAccessExam(examId, user);
 
       // 1️⃣ Ambil semua submissions untuk exam tertentu
       const { data: submissions, error: subError } = await this.supabase
@@ -154,7 +163,7 @@ export class TeacherExamsService {
 
       if (subError) throw new InternalServerErrorException(subError.message);
       if (!submissions || !submissions.length)
-        return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
+        return { data: [], meta: { total: 0, page, limit, totalPages: 0, exam } };
 
       // 2️⃣ Ambil semua student terkait
       const studentIds = submissions.map(s => s.student_id);
@@ -168,6 +177,7 @@ export class TeacherExamsService {
       // 3️⃣ Gabungkan submissions dengan student
       let combined = submissions.map(sub => ({
         ...sub,
+        exam,
         student: students.find(s => s.id === sub.student_id) || null,
       }));
 
@@ -201,9 +211,11 @@ export class TeacherExamsService {
           page,
           limit,
           totalPages: Math.ceil(total / limit),
+          exam,
         },
       };
     } catch (err: any) {
+      if (err instanceof HttpException) throw err;
       throw new InternalServerErrorException(err.message);
     }
   }
@@ -254,21 +266,24 @@ export class TeacherExamsService {
         subject,
       };
 
-      // ambil questions manual
       const submissionAnswers = this.normalizeAnswers(submission.answers);
-      const questionIds = [...new Set(submissionAnswers.map(a => a.question_id))];
+      const answerByQuestionId = new Map(
+        submissionAnswers.map((answer) => [String(answer.question_id), answer]),
+      );
 
       const { data: questions } = await this.supabase
         .from('questionnaires')
         .select('*')
-        .in('id', questionIds);
+        .eq('exam_id', submission.exam_id)
+        .is('deleted_at', null)
+        .order('index', { ascending: true });
 
       const mappedQuestions = (questions || []).map(q => {
-        const ans = submissionAnswers.find(a => a.question_id === q.id);
+        const ans = answerByQuestionId.get(String(q.id));
         return {
           ...q,
-          student_answer: ans?.answer ?? null,
-          is_correct: ans?.is_correct ?? null,
+          student_answer: ans?.answer ?? '',
+          is_correct: ans?.is_correct ?? (q.type === 'multiple_choice' ? false : null),
         };
       });
 
@@ -280,6 +295,53 @@ export class TeacherExamsService {
       };
 
     } catch (err: any) {
+      if (err instanceof HttpException) throw err;
+      throw new InternalServerErrorException(err.message);
+    }
+  }
+
+  async cancelSubmission(submissionId: string, user?: any) {
+    try {
+      const { data: submission, error } = await this.supabase
+        .from('exam_submissions')
+        .select('id, exam_id, student_id, session_id')
+        .eq('id', submissionId)
+        .single();
+
+      if (error || !submission) throw new NotFoundException('Submission not found');
+      await this.assertTeacherCanAccessExam(submission.exam_id, user);
+
+      const { error: jobDeleteError } = await this.supabase
+        .from('exam_submission_jobs')
+        .delete()
+        .eq('submission_id', submissionId);
+
+      if (jobDeleteError) throw new InternalServerErrorException(jobDeleteError.message);
+
+      const { error: submissionDeleteError } = await this.supabase
+        .from('exam_submissions')
+        .delete()
+        .eq('id', submissionId);
+
+      if (submissionDeleteError) throw new InternalServerErrorException(submissionDeleteError.message);
+
+      if (submission.session_id) {
+        const { error: sessionDeleteError } = await this.supabase
+          .from('exam_sessions')
+          .delete()
+          .eq('id', submission.session_id);
+
+        if (sessionDeleteError) throw new InternalServerErrorException(sessionDeleteError.message);
+      }
+
+      return {
+        message: 'Submission canceled successfully',
+        submission_id: submissionId,
+        exam_id: submission.exam_id,
+        student_id: submission.student_id,
+      };
+    } catch (err: any) {
+      if (err instanceof HttpException) throw err;
       throw new InternalServerErrorException(err.message);
     }
   }
@@ -314,12 +376,12 @@ export class TeacherExamsService {
       await this.assertTeacherCanAccessExam(submission.exam_id, user);
 
       const existingAnswers = this.normalizeAnswers(submission.answers);
-      if (existingAnswers.length === 0) {
-        throw new BadRequestException('Jawaban siswa tidak ditemukan pada submission ini');
-      }
 
       const scoreByQuestionId = new Map(
-        scores.map((score) => [String(score.question_id), Boolean(score.is_correct)]),
+        scores.map((score) => [
+          String(score.question_id),
+          score.is_correct === null || score.is_correct === undefined ? null : Boolean(score.is_correct),
+        ]),
       );
 
       const updatedAnswers = existingAnswers.map(a => {
@@ -328,6 +390,17 @@ export class TeacherExamsService {
           ? { ...a, is_correct: scoreByQuestionId.get(questionId) }
           : a;
       });
+      const existingQuestionIds = new Set(existingAnswers.map((answer) => String(answer.question_id)));
+
+      for (const [questionId, isCorrect] of scoreByQuestionId.entries()) {
+        if (!existingQuestionIds.has(questionId)) {
+          updatedAnswers.push({
+            question_id: questionId,
+            answer: '',
+            is_correct: isCorrect,
+          });
+        }
+      }
 
       const { data, error: updateError } = await this.supabase
         .from('exam_submissions')

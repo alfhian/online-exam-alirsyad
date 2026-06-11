@@ -6,7 +6,7 @@ import Menus from "./Menu";
 import api from "../api/axiosConfig";
 import Swal from "sweetalert2";
 
-const Sidebar = ({ children }) => {
+const Sidebar = ({ children, pageTitle }) => {
   const [isOpen, setIsOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -201,7 +201,7 @@ const Sidebar = ({ children }) => {
                <FaBars className="text-lg" />
              </button>
              <h2 className="text-xs font-semibold text-slate-500 capitalize truncate">
-               {location.pathname.split('/').filter(Boolean).pop()?.replace('-', ' ') || 'Dashboard'}
+               {pageTitle || location.pathname.split('/').filter(Boolean).pop()?.replace('-', ' ') || 'Dashboard'}
              </h2>
            </div>
            <div className="flex items-center gap-3">

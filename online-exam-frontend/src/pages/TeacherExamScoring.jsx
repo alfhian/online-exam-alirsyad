@@ -17,6 +17,7 @@ const TeacherExamScoring = () => {
   const [scoring, setScoring] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [manualScore, setManualScore] = useState("");
   const navigate = useNavigate();
 
   const fetchSubmissionDetail = async () => {
@@ -40,6 +41,7 @@ const TeacherExamScoring = () => {
         initialScoring[q.id] = q.is_correct ?? null;
       });
       setScoring(initialScoring);
+      setManualScore(data.score ?? "");
     } catch (err) {
       console.error("Gagal mengambil data:", err);
       MySwal.fire({
@@ -66,52 +68,23 @@ const TeacherExamScoring = () => {
       setSaving(true);
       const questions = submission.questions || [];
       
-      // Validasi: Semua soal harus diberi nilai (true/false)
-      const unanswered = questions.filter(q => scoring[q.id] === null || scoring[q.id] === undefined);
-      if (unanswered.length > 0) {
-        MySwal.fire("Gagal!", `Masih ada ${unanswered.length} soal yang belum diberi nilai!`, "warning");
-        return;
-      }
-
       const totalMultiple = questions.filter(q => q.type === "multiple_choice").length;
-      const totalEssay = questions.filter(q => q.type === "essay").length;
-
+      const hasEssay = questions.some(q => q.type === "essay");
       const correctMultiple = questions.filter(
         q => q.type === "multiple_choice" && scoring[q.id] === true
       ).length;
 
-      const correctEssay = questions.filter(
-        q => q.type === "essay" && scoring[q.id] === true
-      ).length;
-
-      let scoreMultiple = 0;
-      let scoreEssay = 0;
-
-      /* ----------------------------------------------
-      * CASE 1: HANYA MULTIPLE CHOICE
-      * --------------------------------------------*/
-      if (totalMultiple > 0 && totalEssay === 0) {
-        scoreMultiple = (correctMultiple / totalMultiple) * 100;
-        scoreEssay = 0;
+      const parsedManualScore = Number(manualScore);
+      if (hasEssay && (!Number.isFinite(parsedManualScore) || parsedManualScore < 0 || parsedManualScore > 100)) {
+        MySwal.fire("Gagal!", "Nilai akhir essay harus diisi antara 0 sampai 100.", "warning");
+        return;
       }
 
-      /* ----------------------------------------------
-      * CASE 2: HANYA ESSAY
-      * --------------------------------------------*/
-      else if (totalEssay > 0 && totalMultiple === 0) {
-        scoreEssay = (correctEssay / totalEssay) * 100;
-        scoreMultiple = 0;
-      }
-
-      /* ----------------------------------------------
-      * CASE 3: ADA KEDUANYA (aturan default 60/40)
-      * --------------------------------------------*/
-      else {
-        scoreMultiple = totalMultiple > 0 ? (correctMultiple / totalMultiple) * 60 : 0;
-        scoreEssay = totalEssay > 0 ? (correctEssay / totalEssay) * 40 : 0;
-      }
-
-      const finalScore = Math.round(scoreMultiple + scoreEssay);
+      const finalScore = hasEssay
+        ? Math.round(parsedManualScore)
+        : totalMultiple > 0
+          ? Math.round((correctMultiple / totalMultiple) * 100)
+          : 0;
 
       const payload = Object.entries(scoring).map(([questionId, isCorrect]) => ({
         question_id: questionId,
@@ -152,7 +125,7 @@ const TeacherExamScoring = () => {
   }, [submissionId]);
 
   return (
-    <Sidebar>
+    <Sidebar pageTitle={submission?.exam?.title || "Penilaian Ujian Siswa"}>
       <div className="module-shell font-poppins">
         {/* Header */}
         <div className="module-header justify-start">
@@ -219,6 +192,23 @@ const TeacherExamScoring = () => {
                 <p className="text-gray-500 italic">Tidak ada soal untuk dinilai.</p>
               )}
             </div>
+
+            {submission.questions?.some((q) => q.type === "essay") && (
+              <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Nilai Akhir dari Guru
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={manualScore}
+                  onChange={(event) => setManualScore(event.target.value)}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  placeholder="Masukkan nilai 0 - 100"
+                />
+              </div>
+            )}
 
             {/* Tombol Simpan */}
             <div className="flex justify-end">
