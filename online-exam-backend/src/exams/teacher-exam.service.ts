@@ -413,11 +413,6 @@ export class TeacherExamsService {
         throw new BadRequestException('Data penilaian tidak boleh kosong');
       }
 
-      const normalizedScore = Number(totalScore);
-      if (!Number.isFinite(normalizedScore)) {
-        throw new BadRequestException('Total nilai tidak valid');
-      }
-
       const { data: submission, error } = await this.supabase
         .from('exam_submissions')
         .select('answers, score, exam_id')
@@ -454,11 +449,28 @@ export class TeacherExamsService {
         }
       }
 
+      const { data: questions, error: questionError } = await this.supabase
+        .from('questionnaires')
+        .select('id')
+        .eq('exam_id', submission.exam_id)
+        .is('deleted_at', null);
+
+      if (questionError) throw new InternalServerErrorException(questionError.message);
+
+      const questionIds = (questions || []).map((question) => String(question.id));
+      const correctCount = questionIds.filter((questionId) => {
+        const answer = updatedAnswers.find((item) => String(item.question_id) === questionId);
+        return answer?.is_correct === true;
+      }).length;
+      const calculatedScore = questionIds.length
+        ? Math.round((correctCount / questionIds.length) * 100)
+        : Math.max(0, Math.min(100, Math.round(Number(totalScore || 0))));
+
       const { data, error: updateError } = await this.supabase
         .from('exam_submissions')
         .update({
           answers: updatedAnswers,
-          score: Math.max(0, Math.min(100, Math.round(normalizedScore))),
+          score: calculatedScore,
         })
         .eq('id', submissionId)
         .select()
