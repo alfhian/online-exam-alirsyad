@@ -88,8 +88,11 @@ const TeacherExamScoring = () => {
         ? Math.max(0, Math.min(100, Math.round(parsedScore)))
         : null;
     });
-    const safeEssayScore = essayQuestionScores.length && essayQuestionScores.every((score) => score !== null)
-      ? Math.min(100, essayQuestionScores.reduce((sum, score) => sum + Number(score), 0))
+    const totalEssayScore = essayQuestionScores.length && essayQuestionScores.every((score) => score !== null)
+      ? essayQuestionScores.reduce((sum, score) => sum + Number(score), 0)
+      : null;
+    const safeEssayScore = totalEssayScore !== null
+      ? Math.round(totalEssayScore / essayQuestionScores.length)
       : null;
     const components = [
       multipleChoiceScore,
@@ -105,6 +108,7 @@ const TeacherExamScoring = () => {
       multipleChoiceCorrect,
       multipleChoiceScore,
       essayQuestionScores,
+      totalEssayScore,
       safeEssayScore,
       finalScore,
     };
@@ -119,7 +123,6 @@ const TeacherExamScoring = () => {
         MySwal.fire("Nilai essay belum lengkap", "Isi nilai setiap jawaban essay dengan angka 0 sampai 100.", "warning");
         return;
       }
-
       const payload = Object.entries(scoring).map(([questionId, isCorrect]) => ({
         question_id: questionId,
         is_correct: isCorrect,
@@ -216,7 +219,7 @@ const TeacherExamScoring = () => {
               <div>
                 <h5 className="font-semibold text-gray-800">Ringkasan Nilai</h5>
                 <p className="text-xs text-gray-500 mt-1">
-                  Nilai PG dihitung otomatis dari soal pilihan ganda saja. Poin essay dijumlahkan dan maksimal 100.
+                  Nilai PG dihitung otomatis dari soal pilihan ganda saja. Setiap jawaban essay bernilai 0-100, lalu dirata-ratakan.
                 </p>
               </div>
 
@@ -232,12 +235,12 @@ const TeacherExamScoring = () => {
                 </div>
 
                 <div className="rounded-xl bg-slate-50 border border-slate-100 p-4">
-                  <p className="text-xs font-semibold text-slate-500 uppercase">Total Poin Essay</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase">Rata-rata Nilai Essay</p>
                   <p className="text-2xl font-bold text-slate-800 mt-1">
                     {scoreSummary.safeEssayScore ?? "-"}
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
-                    Jumlah poin dari {scoreSummary.essayQuestions.length} jawaban essay, maksimal 100
+                    Total {scoreSummary.totalEssayScore ?? "-"} dari {scoreSummary.essayQuestions.length} jawaban essay
                   </p>
                 </div>
 
