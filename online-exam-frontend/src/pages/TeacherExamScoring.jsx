@@ -124,12 +124,12 @@ const TeacherExamScoring = () => {
         question_id: questionId,
         is_correct: isCorrect,
       }));
-      const essayPayload = scoreSummary.essayQuestions.map((question) => ({
+      const essayPayload = scoreSummary.essayQuestions.map((question, index) => ({
         question_id: question.id,
-        score: scoreSummary.essayQuestionScores[scoreSummary.essayQuestions.findIndex((item) => item.id === question.id)],
+        score: scoreSummary.essayQuestionScores[index],
       }));
 
-      await api.patch(
+      const { data: scoringResult } = await api.patch(
         `/teacher-exams/submission/${submissionId}/scoring`,
         {
           scores: payload,
@@ -142,10 +142,11 @@ const TeacherExamScoring = () => {
           },
         }
       );
+      const savedScore = scoringResult?.score ?? scoreSummary.finalScore;
 
       MySwal.fire({
         title: "Berhasil!",
-        text: `Nilai ujian berhasil disimpan.\nSkor akhir: ${scoreSummary.finalScore}`,
+        text: `Nilai ujian berhasil disimpan.\nSkor akhir: ${savedScore}`,
         icon: "success",
         confirmButtonText: "OK",
       }).then(() => navigate("/teacher-exam"));
