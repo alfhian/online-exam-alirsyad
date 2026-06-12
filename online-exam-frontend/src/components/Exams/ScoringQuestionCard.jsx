@@ -109,7 +109,7 @@ const ScoringQuestionCard = ({
           </div>
         ) : (
           <label className="shrink-0 text-xs font-semibold text-slate-600" htmlFor={`essay-score-${id}`}>
-            <span className="mb-1 block text-right">Nilai Essay</span>
+            <span className="mb-1 block text-right">Poin Essay</span>
             <input
               id={`essay-score-${id}`}
               type="number"

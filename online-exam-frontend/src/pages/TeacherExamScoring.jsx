@@ -89,7 +89,7 @@ const TeacherExamScoring = () => {
         : null;
     });
     const safeEssayScore = essayQuestionScores.length && essayQuestionScores.every((score) => score !== null)
-      ? Math.round(essayQuestionScores.reduce((sum, score) => sum + Number(score), 0) / essayQuestionScores.length)
+      ? Math.min(100, essayQuestionScores.reduce((sum, score) => sum + Number(score), 0))
       : null;
     const components = [
       multipleChoiceScore,
@@ -215,7 +215,7 @@ const TeacherExamScoring = () => {
               <div>
                 <h5 className="font-semibold text-gray-800">Ringkasan Nilai</h5>
                 <p className="text-xs text-gray-500 mt-1">
-                  Nilai PG dihitung otomatis dari soal pilihan ganda saja. Nilai essay diisi manual oleh guru.
+                  Nilai PG dihitung otomatis dari soal pilihan ganda saja. Poin essay dijumlahkan dan maksimal 100.
                 </p>
               </div>
 
@@ -231,12 +231,12 @@ const TeacherExamScoring = () => {
                 </div>
 
                 <div className="rounded-xl bg-slate-50 border border-slate-100 p-4">
-                  <p className="text-xs font-semibold text-slate-500 uppercase">Nilai Essay</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase">Total Poin Essay</p>
                   <p className="text-2xl font-bold text-slate-800 mt-1">
                     {scoreSummary.safeEssayScore ?? "-"}
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
-                    Rata-rata dari {scoreSummary.essayQuestions.length} jawaban essay
+                    Jumlah poin dari {scoreSummary.essayQuestions.length} jawaban essay, maksimal 100
                   </p>
                 </div>
 

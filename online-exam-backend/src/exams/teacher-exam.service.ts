@@ -535,9 +535,7 @@ export class TeacherExamsService {
 
       const validEssayQuestionScores = essayQuestionScores as number[];
       const essayScore = validEssayQuestionScores.length
-        ? Math.round(
-            validEssayQuestionScores.reduce((sum, score) => sum + score, 0) / validEssayQuestionScores.length,
-          )
+        ? Math.min(100, validEssayQuestionScores.reduce((sum, score) => sum + score, 0))
         : null;
 
       const scoreComponents = [
