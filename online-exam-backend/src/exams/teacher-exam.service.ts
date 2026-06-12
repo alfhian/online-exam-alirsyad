@@ -29,6 +29,39 @@ export class TeacherExamsService {
     return [];
   }
 
+  private normalizeRelation<T = any>(value: T | T[] | null | undefined): T | null {
+    if (Array.isArray(value)) return value[0] || null;
+    return value || null;
+  }
+
+  private sortRows(rows: any[], sort: string, order: 'asc' | 'desc') {
+    const direction = order === 'asc' ? 1 : -1;
+
+    return rows.sort((left, right) => {
+      const leftValue = this.getSortValue(left, sort);
+      const rightValue = this.getSortValue(right, sort);
+
+      if (leftValue == null && rightValue == null) return 0;
+      if (leftValue == null) return -1 * direction;
+      if (rightValue == null) return 1 * direction;
+
+      if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+        return (leftValue - rightValue) * direction;
+      }
+
+      return String(leftValue).localeCompare(String(rightValue), 'id', {
+        numeric: true,
+        sensitivity: 'base',
+      }) * direction;
+    });
+  }
+
+  private getSortValue(row: any, sort: string) {
+    if (sort === 'subject') return row.subject?.name;
+    if (sort === 'created_at' || sort === 'submitted_at') return row.latest_submission_at;
+    return row?.[sort];
+  }
+
   private async assertTeacherCanAccessExam(examId: string, user?: any) {
     const { data: exam, error } = await this.supabase
       .from('exams')
@@ -64,21 +97,7 @@ export class TeacherExamsService {
     const to = from + limit - 1;
 
     try {
-      // Ambil semua exam_submissions untuk hitung unscored_count
-      const { data: submissions } = await this.supabase
-        .from('exam_submissions')
-        .select('exam_id,score');
-
-      const examIds = [...new Set(submissions?.map(s => s.exam_id) || [])];
-      if (!examIds.length) return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
-
-      const unscoredMap: Record<string, number> = {};
-      (submissions || []).forEach(s => {
-        if (!unscoredMap[s.exam_id]) unscoredMap[s.exam_id] = 0;
-        if (s.score === null || s.score === undefined) unscoredMap[s.exam_id]++;
-      });
-
-      let allowedExamIds = examIds;
+      let allowedSubjectIds: string[] | null = null;
       if (String(user?.role || '').toUpperCase() === 'GURU') {
         const { data: subjects, error: subjectError } = await this.supabase
           .from('subjects')
@@ -88,49 +107,82 @@ export class TeacherExamsService {
 
         if (subjectError) throw new InternalServerErrorException(subjectError.message);
 
-        const subjectIds = (subjects || []).map((subject) => subject.id);
-        if (!subjectIds.length) return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
-
-        const { data: exams, error: examError } = await this.supabase
-          .from('exams')
-          .select('id')
-          .in('id', examIds)
-          .in('subject_id', subjectIds)
-          .is('deleted_at', null);
-
-        if (examError) throw new InternalServerErrorException(examError.message);
-        allowedExamIds = (exams || []).map((exam) => exam.id);
-        if (!allowedExamIds.length) return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
+        allowedSubjectIds = (subjects || []).map((subject) => subject.id);
+        if (!allowedSubjectIds.length) {
+          return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
+        }
       }
 
-      // Ambil daftar ujian + subject info
       let query = this.supabase
-        .from('exams')
-        .select('*, subject:subjects(name, class_id)', { count: 'exact' })
-        .in('id', allowedExamIds)
-        .is('deleted_at', null);
+        .from('exam_submissions')
+        .select(`
+          id,
+          exam_id,
+          score,
+          created_at,
+          exams!inner(
+            id,
+            title,
+            type,
+            date,
+            duration,
+            subject_id,
+            deleted_at,
+            subjects(id, name, class_id, teacher_id)
+          )
+        `);
 
-      if (search) {
-        query = query.or(`title.ilike.%${search}%,type.ilike.%${search}%`);
+      if (allowedSubjectIds) {
+        query = query.in('exams.subject_id', allowedSubjectIds);
       }
 
-      query = query.order(sort, { ascending: order === 'asc' }).range(from, to);
-
-      const { data: exams, count, error } = await query;
+      const { data: submissions, error } = await query.order('created_at', { ascending: false });
       if (error) throw new InternalServerErrorException(error.message);
 
-      const examsWithUnscored = (exams || []).map(e => ({
-        ...e,
-        unscored_count: unscoredMap[e.id] || 0,
-      }));
+      const grouped = (submissions || []).reduce((acc: Record<string, any>, submission: any) => {
+        const exam = this.normalizeRelation(submission.exams);
+        if (!exam || exam.deleted_at) return acc;
+
+        const subject = this.normalizeRelation(exam.subjects);
+        if (!acc[exam.id]) {
+          acc[exam.id] = {
+            ...exam,
+            subject,
+            submission_count: 0,
+            unscored_count: 0,
+            latest_submission_at: submission.created_at,
+          };
+        }
+
+        acc[exam.id].submission_count += 1;
+        if (submission.score === null || submission.score === undefined) {
+          acc[exam.id].unscored_count += 1;
+        }
+        if (new Date(submission.created_at).getTime() > new Date(acc[exam.id].latest_submission_at).getTime()) {
+          acc[exam.id].latest_submission_at = submission.created_at;
+        }
+
+        return acc;
+      }, {});
+
+      const keyword = search.trim().toLowerCase();
+      const filtered = Object.values(grouped).filter((exam: any) => {
+        if (!keyword) return true;
+        return [exam.title, exam.type, exam.subject?.name, exam.subject?.class_id].some((value) =>
+          String(value ?? '').toLowerCase().includes(keyword),
+        );
+      });
+
+      const sorted = this.sortRows(filtered, sort, order);
+      const paginated = sorted.slice(from, to + 1);
 
       return {
-        data: examsWithUnscored,
+        data: paginated,
         meta: {
-          total: count || 0,
+          total: sorted.length,
           page,
           limit,
-          totalPages: Math.ceil((count || 0) / limit),
+          totalPages: Math.ceil(sorted.length / limit),
         },
       };
     } catch (err: any) {
