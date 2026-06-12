@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Swal from "sweetalert2";
@@ -15,6 +15,7 @@ const TeacherExamScoring = () => {
   const { submissionId } = useParams();
   const [submission, setSubmission] = useState(null);
   const [scoring, setScoring] = useState({});
+  const [essayScores, setEssayScores] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
@@ -36,10 +37,15 @@ const TeacherExamScoring = () => {
 
       // Pre-fill skor awal jika sudah pernah dinilai
       const initialScoring = {};
+      const initialEssayScores = {};
       data.questions?.forEach((q) => {
         initialScoring[q.id] = q.is_correct ?? null;
+        if (q.type !== "multiple_choice") {
+          initialEssayScores[q.id] = q.essay_score ?? "";
+        }
       });
       setScoring(initialScoring);
+      setEssayScores(initialEssayScores);
     } catch (err) {
       console.error("Gagal mengambil data:", err);
       MySwal.fire({
@@ -60,24 +66,76 @@ const TeacherExamScoring = () => {
     }));
   };
 
+  const handleSetEssayScore = (questionId, score) => {
+    setEssayScores((prev) => ({
+      ...prev,
+      [questionId]: score,
+    }));
+  };
+
+  const scoreSummary = useMemo(() => {
+    const questions = submission?.questions || [];
+    const multipleChoiceQuestions = questions.filter((q) => q.type === "multiple_choice");
+    const essayQuestions = questions.filter((q) => q.type !== "multiple_choice");
+    const multipleChoiceCorrect = multipleChoiceQuestions.filter((q) => scoring[q.id] === true).length;
+    const multipleChoiceScore = multipleChoiceQuestions.length
+      ? Math.round((multipleChoiceCorrect / multipleChoiceQuestions.length) * 100)
+      : null;
+    const essayQuestionScores = essayQuestions.map((q) => {
+      const rawScore = essayScores[q.id];
+      const parsedScore = rawScore === "" || rawScore === undefined || rawScore === null ? null : Number(rawScore);
+      return Number.isFinite(parsedScore)
+        ? Math.max(0, Math.min(100, Math.round(parsedScore)))
+        : null;
+    });
+    const safeEssayScore = essayQuestionScores.length && essayQuestionScores.every((score) => score !== null)
+      ? Math.round(essayQuestionScores.reduce((sum, score) => sum + Number(score), 0) / essayQuestionScores.length)
+      : null;
+    const components = [
+      multipleChoiceScore,
+      essayQuestions.length > 0 ? safeEssayScore : null,
+    ].filter((score) => score !== null);
+    const finalScore = components.length
+      ? Math.round(components.reduce((sum, score) => sum + score, 0) / components.length)
+      : 0;
+
+    return {
+      multipleChoiceQuestions,
+      essayQuestions,
+      multipleChoiceCorrect,
+      multipleChoiceScore,
+      essayQuestionScores,
+      safeEssayScore,
+      finalScore,
+    };
+  }, [essayScores, scoring, submission]);
+
   const handleSaveScore = async () => {
     if (saving) return;
     try {
       setSaving(true);
-      const questions = submission.questions || [];
-      const correctCount = questions.filter((q) => scoring[q.id] === true).length;
-      const finalScore = questions.length > 0
-        ? Math.round((correctCount / questions.length) * 100)
-        : 0;
+
+      if (scoreSummary.essayQuestions.length > 0 && scoreSummary.essayQuestionScores.some((score) => score === null)) {
+        MySwal.fire("Nilai essay belum lengkap", "Isi nilai setiap jawaban essay dengan angka 0 sampai 100.", "warning");
+        return;
+      }
 
       const payload = Object.entries(scoring).map(([questionId, isCorrect]) => ({
         question_id: questionId,
         is_correct: isCorrect,
       }));
+      const essayPayload = scoreSummary.essayQuestions.map((question) => ({
+        question_id: question.id,
+        score: scoreSummary.essayQuestionScores[scoreSummary.essayQuestions.findIndex((item) => item.id === question.id)],
+      }));
 
       await api.patch(
         `/teacher-exams/submission/${submissionId}/scoring`,
-        { scores: payload, totalScore: finalScore },
+        {
+          scores: payload,
+          totalScore: scoreSummary.finalScore,
+          essayScores: essayPayload,
+        },
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -87,7 +145,7 @@ const TeacherExamScoring = () => {
 
       MySwal.fire({
         title: "Berhasil!",
-        text: `Nilai ujian berhasil disimpan.\nSkor akhir: ${finalScore}`,
+        text: `Nilai ujian berhasil disimpan.\nSkor akhir: ${scoreSummary.finalScore}`,
         icon: "success",
         confirmButtonText: "OK",
       }).then(() => navigate("/teacher-exam"));
@@ -152,6 +210,52 @@ const TeacherExamScoring = () => {
               </div>
             </div>
 
+            {/* Ringkasan Nilai */}
+            <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100 space-y-4">
+              <div>
+                <h5 className="font-semibold text-gray-800">Ringkasan Nilai</h5>
+                <p className="text-xs text-gray-500 mt-1">
+                  Nilai PG dihitung otomatis dari soal pilihan ganda saja. Nilai essay diisi manual oleh guru.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-xl bg-slate-50 border border-slate-100 p-4">
+                  <p className="text-xs font-semibold text-slate-500 uppercase">Nilai PG</p>
+                  <p className="text-2xl font-bold text-slate-800 mt-1">
+                    {scoreSummary.multipleChoiceScore ?? "-"}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {scoreSummary.multipleChoiceCorrect}/{scoreSummary.multipleChoiceQuestions.length} benar
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-slate-50 border border-slate-100 p-4">
+                  <p className="text-xs font-semibold text-slate-500 uppercase">Nilai Essay</p>
+                  <p className="text-2xl font-bold text-slate-800 mt-1">
+                    {scoreSummary.safeEssayScore ?? "-"}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Rata-rata dari {scoreSummary.essayQuestions.length} jawaban essay
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4">
+                  <p className="text-xs font-semibold text-emerald-700 uppercase">Nilai Akhir</p>
+                  <p className="text-2xl font-bold text-emerald-700 mt-1">
+                    {scoreSummary.finalScore}
+                  </p>
+                  <p className="text-xs text-emerald-700 mt-1">
+                    {scoreSummary.essayQuestions.length > 0 && scoreSummary.multipleChoiceQuestions.length > 0
+                      ? "(Nilai PG + Nilai Essay) / 2"
+                      : scoreSummary.essayQuestions.length > 0
+                        ? "Mengikuti nilai essay"
+                        : "Mengikuti nilai PG"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Daftar Soal */}
             <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100 space-y-4">
               <h5 className="font-semibold text-gray-700 mb-2">Daftar Soal</h5>
@@ -169,7 +273,9 @@ const TeacherExamScoring = () => {
                     }}
                     index={idx}
                     isCorrect={scoring[q.id]}
+                    essayScore={essayScores[q.id]}
                     onSetScore={handleSetScore}
+                    onSetEssayScore={handleSetEssayScore}
                   />
                 ))
               ) : (

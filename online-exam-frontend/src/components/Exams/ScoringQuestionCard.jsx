@@ -1,9 +1,17 @@
-import React from "react";
 import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/solid";
 import RichTextRenderer from "../RichTextRenderer";
 
-const ScoringQuestionCard = ({ question, index, isCorrect, onSetScore }) => {
+const ScoringQuestionCard = ({
+  question,
+  index,
+  isCorrect,
+  essayScore,
+  onSetScore,
+  onSetEssayScore,
+}) => {
   const { id, text, type, options, correctAnswer, studentAnswer } = question;
+  const isMultipleChoice = type === "multiple_choice";
+  const isManualScore = !isMultipleChoice;
 
   /** 🔹 Helper: render opsi jawaban (untuk multiple choice) */
   const renderOptions = () => {
@@ -33,7 +41,7 @@ const ScoringQuestionCard = ({ question, index, isCorrect, onSetScore }) => {
 
   /** 🔹 Helper: render jawaban siswa (untuk essay) */
   const renderStudentAnswer = () => {
-    if (type === "essay") {
+    if (isManualScore) {
       return (
         <div className="bg-gray-50 p-3 rounded-md mt-2 text-gray-800">
           {studentAnswer ? <RichTextRenderer content={studentAnswer} /> : "-"}
@@ -46,7 +54,7 @@ const ScoringQuestionCard = ({ question, index, isCorrect, onSetScore }) => {
   /** 🔹 Helper: render jawaban benar */
   const renderCorrectAnswer = () => {
     if (!correctAnswer) return null;
-    if (type === "essay") return null; // essay tidak punya jawaban baku
+    if (isManualScore) return null; // essay/manual tidak punya jawaban baku
 
     return (
       <div className="mt-2 text-sm text-gray-600">
@@ -74,35 +82,51 @@ const ScoringQuestionCard = ({ question, index, isCorrect, onSetScore }) => {
             <RichTextRenderer content={text} />
           </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => onSetScore(id, true)}
-            className={`p-2 rounded-full transition ${
-              isCorrect === true
-                ? "bg-green-100 text-green-600"
-                : "bg-gray-100 text-gray-400 hover:text-green-500"
-            }`}
-            title="Jawaban Benar"
-          >
-            <CheckCircleIcon className="h-5 w-5" />
-          </button>
-          <button
-            onClick={() => onSetScore(id, false)}
-            className={`p-2 rounded-full transition ${
-              isCorrect === false
-                ? "bg-red-100 text-red-600"
-                : "bg-gray-100 text-gray-400 hover:text-red-500"
-            }`}
-            title="Jawaban Salah"
-          >
-            <XCircleIcon className="h-5 w-5" />
-          </button>
-        </div>
+        {isMultipleChoice ? (
+          <div className="flex gap-2">
+            <button
+              onClick={() => onSetScore(id, true)}
+              className={`p-2 rounded-full transition ${
+                isCorrect === true
+                  ? "bg-green-100 text-green-600"
+                  : "bg-gray-100 text-gray-400 hover:text-green-500"
+              }`}
+              title="Jawaban Benar"
+            >
+              <CheckCircleIcon className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => onSetScore(id, false)}
+              className={`p-2 rounded-full transition ${
+                isCorrect === false
+                  ? "bg-red-100 text-red-600"
+                  : "bg-gray-100 text-gray-400 hover:text-red-500"
+              }`}
+              title="Jawaban Salah"
+            >
+              <XCircleIcon className="h-5 w-5" />
+            </button>
+          </div>
+        ) : (
+          <label className="shrink-0 text-xs font-semibold text-slate-600" htmlFor={`essay-score-${id}`}>
+            <span className="mb-1 block text-right">Nilai Essay</span>
+            <input
+              id={`essay-score-${id}`}
+              type="number"
+              min="0"
+              max="100"
+              value={essayScore ?? ""}
+              onChange={(event) => onSetEssayScore(id, event.target.value)}
+              className="w-28 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-center text-sm font-bold text-emerald-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+              placeholder="0-100"
+            />
+          </label>
+        )}
       </div>
 
       {/* 🔹 Konten Soal */}
       <div className="ml-1 text-gray-700">
-        {type === "multiple_choice" ? (
+        {isMultipleChoice ? (
           <>
             <p className="text-sm text-gray-600">Pilihan:</p>
             {renderOptions()}

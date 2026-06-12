@@ -76,8 +76,9 @@ export class TeacherExamsController {
   async updateSubmissionScore(
     @Param('submissionId') submissionId: string,
     @Body() body: {
-      scores: { question_id: string; is_correct: boolean }[];
+      scores: { question_id: string; is_correct?: boolean | null; essay_score?: number | null }[];
       totalScore?: number;
+      essayScores?: { question_id: string; score: number | null }[];
     },
     @Req() req: any,
   ) {
@@ -86,6 +87,7 @@ export class TeacherExamsController {
         submissionId,
         body.scores,
         body.totalScore,
+        body.essayScores,
         req.user,
       );
     } catch (err: any) {

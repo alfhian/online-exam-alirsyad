@@ -72,6 +72,28 @@ export class ExamSessionService {
       .from("exam_sessions")
       .update({
         finished: true,
+        status: "finished",
+        finished_reason: "submitted",
+        finished_at: new Date(),
+        updated_at: new Date(),
+      })
+      .eq("id", sessionId)
+      .select()
+      .single();
+
+    if (error) throw new InternalServerErrorException(error.message);
+    return data;
+  }
+
+  async disqualifySession(sessionId: string, reason = "proctoring_violation") {
+    const { data, error } = await this.supabase
+      .from("exam_sessions")
+      .update({
+        finished: true,
+        status: "disqualified",
+        finished_reason: reason,
+        finished_at: new Date(),
+        updated_at: new Date(),
       })
       .eq("id", sessionId)
       .select()

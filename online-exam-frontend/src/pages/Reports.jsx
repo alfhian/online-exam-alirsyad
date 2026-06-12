@@ -68,15 +68,6 @@ const Reports = () => {
     fetchData();
   }, [params]);
 
-  const activeRows =
-    activeTab === "exam"
-      ? examRows
-      : activeTab === "submission"
-        ? submissionRows
-        : activeTab === "subject"
-          ? subjectRows
-          : studentRows;
-
   const normalizedRows = useMemo(() => {
     if (activeTab === "exam") {
       return examRows.map((row) => ({
@@ -101,20 +92,22 @@ const Reports = () => {
       }));
     }
 
-    return subjectRows.map((row) => ({
-      mapel: row.subject,
-      kelas: row.class_id,
-      total_siswa: row.totalStudents,
-      total_ujian: row.totalExams,
-      total_submission: row.totalSubmissions,
-      sudah_dinilai: row.scoredSubmissions,
-      belum_dinilai: row.unscoredSubmissions,
-      rata_rata: row.averageScore == null ? "-" : Number(row.averageScore).toFixed(2),
-      nilai_tertinggi: row.highestScore ?? "-",
-      nilai_terendah: row.lowestScore ?? "-",
-      lulus: row.passedCount,
-      belum_lulus: row.failedCount,
-    }));
+    if (activeTab === "subject") {
+      return subjectRows.map((row) => ({
+        mapel: row.subject,
+        kelas: row.class_id,
+        total_siswa: row.totalStudents,
+        total_ujian: row.totalExams,
+        total_submission: row.totalSubmissions,
+        sudah_dinilai: row.scoredSubmissions,
+        belum_dinilai: row.unscoredSubmissions,
+        rata_rata: row.averageScore == null ? "-" : Number(row.averageScore).toFixed(2),
+        nilai_tertinggi: row.highestScore ?? "-",
+        nilai_terendah: row.lowestScore ?? "-",
+        lulus: row.passedCount,
+        belum_lulus: row.failedCount,
+      }));
+    }
 
     return studentRows.map((row) => ({
       siswa: row.student,
@@ -153,13 +146,22 @@ const Reports = () => {
       <div className="module-shell space-y-5">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
           <h1 className="module-title">Laporan Akademik</h1>
-          <p className="mt-2 text-slate-600">Filter data, lihat laporan, lalu export CSV/Excel.</p>
+          <p className="mt-2 text-slate-600">
+            Filter data, lihat laporan, lalu export CSV/Excel. Filter tanggal memakai tanggal ujian untuk Report Ujian,
+            dan tanggal submit untuk laporan nilai/submission.
+          </p>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <input type="date" value={filters.from} onChange={(e) => setFilters((p) => ({ ...p, from: e.target.value }))} />
-            <input type="date" value={filters.to} onChange={(e) => setFilters((p) => ({ ...p, to: e.target.value }))} />
+            <label className="space-y-1 text-xs font-semibold text-slate-600">
+              <span>Dari tanggal</span>
+              <input type="date" value={filters.from} onChange={(e) => setFilters((p) => ({ ...p, from: e.target.value }))} />
+            </label>
+            <label className="space-y-1 text-xs font-semibold text-slate-600">
+              <span>Sampai tanggal</span>
+              <input type="date" value={filters.to} onChange={(e) => setFilters((p) => ({ ...p, to: e.target.value }))} />
+            </label>
             <SubjectSelect subject={filters.subjectId} setSubject={(v) => setFilters((p) => ({ ...p, subjectId: v || "" }))} />
             <select value={filters.examType} onChange={(e) => setFilters((p) => ({ ...p, examType: e.target.value }))}>
               <option value="">Semua Tipe</option>
@@ -187,7 +189,6 @@ const Reports = () => {
             <p className="text-slate-500 text-xs italic">Loading report...</p>
           ) : (
             <>
-              {/* 🔹 Desktop Table View */}
               <div className="hidden lg:block table-shell overflow-x-auto">
                 <table className="w-full text-sm text-slate-700">
                   <thead className="bg-emerald-50 text-emerald-700 uppercase text-[10px] font-bold tracking-wider">
@@ -219,11 +220,10 @@ const Reports = () => {
                 </table>
               </div>
 
-              {/* 🔹 Mobile Card View */}
               <div className="lg:hidden space-y-4">
                 {normalizedRows.length ? (
                   normalizedRows.map((row, idx) => (
-                    <div 
+                    <div
                       key={idx}
                       className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 space-y-4 relative overflow-hidden group hover:shadow-md transition-all"
                     >
@@ -274,4 +274,3 @@ const Reports = () => {
 };
 
 export default Reports;
-

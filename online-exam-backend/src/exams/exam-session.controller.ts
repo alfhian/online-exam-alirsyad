@@ -78,4 +78,9 @@ export class ExamSessionController {
   async finishSession(@Param('sessionId') sessionId: string) {
     return this.examSessionService.finishSession(sessionId);
   }
+
+  @Post(':sessionId/disqualify')
+  async disqualifySession(@Param('sessionId') sessionId: string) {
+    return this.examSessionService.disqualifySession(sessionId);
+  }
 }

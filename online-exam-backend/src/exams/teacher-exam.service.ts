@@ -34,6 +34,35 @@ export class TeacherExamsService {
     return value || null;
   }
 
+  private getStoredEssayScores(answers: any[], essayQuestionIds: string[]) {
+    const scores = new Map<string, number>();
+
+    for (const answer of answers) {
+      const questionId = String(answer?.question_id);
+      if (!essayQuestionIds.includes(questionId)) continue;
+
+      const score = this.clampScore(answer?.essay_score);
+      if (score !== null) scores.set(questionId, score);
+    }
+
+    // Backward compatibility for the previous single essay-score draft.
+    const meta = answers.find((answer) => String(answer?.question_id) === '__essay_score__');
+    const legacyScore = this.clampScore(meta?.answer);
+    if (legacyScore !== null) {
+      for (const questionId of essayQuestionIds) {
+        if (!scores.has(questionId)) scores.set(questionId, legacyScore);
+      }
+    }
+
+    return scores;
+  }
+
+  private clampScore(value: unknown) {
+    const score = Number(value);
+    if (!Number.isFinite(score)) return null;
+    return Math.max(0, Math.min(100, Math.round(score)));
+  }
+
   private sortRows(rows: any[], sort: string, order: 'asc' | 'desc') {
     const direction = order === 'asc' ? 1 : -1;
 
@@ -186,6 +215,7 @@ export class TeacherExamsService {
         },
       };
     } catch (err: any) {
+      if (err instanceof HttpException) throw err;
       throw new InternalServerErrorException(err.message);
     }
   }
@@ -323,12 +353,19 @@ export class TeacherExamsService {
         submissionAnswers.map((answer) => [String(answer.question_id), answer]),
       );
 
-      const { data: questions } = await this.supabase
+      const { data: questions, error: questionError } = await this.supabase
         .from('questionnaires')
         .select('*')
         .eq('exam_id', submission.exam_id)
         .is('deleted_at', null)
         .order('index', { ascending: true });
+
+      if (questionError) throw new InternalServerErrorException(questionError.message);
+
+      const essayQuestionIds = (questions || [])
+        .filter((question) => question.type !== 'multiple_choice')
+        .map((question) => String(question.id));
+      const essayScoreByQuestionId = this.getStoredEssayScores(submissionAnswers, essayQuestionIds);
 
       const mappedQuestions = (questions || []).map(q => {
         const ans = answerByQuestionId.get(String(q.id));
@@ -336,6 +373,7 @@ export class TeacherExamsService {
           ...q,
           student_answer: ans?.answer ?? '',
           is_correct: ans?.is_correct ?? (q.type === 'multiple_choice' ? false : null),
+          essay_score: q.type !== 'multiple_choice' ? (essayScoreByQuestionId.get(String(q.id)) ?? null) : null,
         };
       });
 
@@ -363,6 +401,15 @@ export class TeacherExamsService {
       if (error || !submission) throw new NotFoundException('Submission not found');
       await this.assertTeacherCanAccessExam(submission.exam_id, user);
 
+      if (submission.session_id) {
+        const { error: sessionDeleteError } = await this.supabase
+          .from('exam_sessions')
+          .delete()
+          .eq('id', submission.session_id);
+
+        if (sessionDeleteError) throw new InternalServerErrorException(sessionDeleteError.message);
+      }
+
       const { error: jobDeleteError } = await this.supabase
         .from('exam_submission_jobs')
         .delete()
@@ -376,15 +423,6 @@ export class TeacherExamsService {
         .eq('id', submissionId);
 
       if (submissionDeleteError) throw new InternalServerErrorException(submissionDeleteError.message);
-
-      if (submission.session_id) {
-        const { error: sessionDeleteError } = await this.supabase
-          .from('exam_sessions')
-          .delete()
-          .eq('id', submission.session_id);
-
-        if (sessionDeleteError) throw new InternalServerErrorException(sessionDeleteError.message);
-      }
 
       return {
         message: 'Submission canceled successfully',
@@ -404,8 +442,9 @@ export class TeacherExamsService {
    */
   async updateSubmissionScore(
     submissionId: string,
-    scores: { question_id: string; is_correct: boolean }[],
+    scores: { question_id: string; is_correct?: boolean | null; essay_score?: number | null }[],
     totalScore?: number,
+    essayScores?: { question_id: string; score: number | null }[],
     user?: any,
   ) {
     try {
@@ -430,12 +469,25 @@ export class TeacherExamsService {
           score.is_correct === null || score.is_correct === undefined ? null : Boolean(score.is_correct),
         ]),
       );
+      const essayScoreByQuestionId = new Map<string, number | null>();
+
+      for (const item of essayScores || []) {
+        essayScoreByQuestionId.set(String(item.question_id), this.clampScore(item.score));
+      }
+
+      for (const item of scores || []) {
+        if (item.essay_score !== undefined) {
+          essayScoreByQuestionId.set(String(item.question_id), this.clampScore(item.essay_score));
+        }
+      }
 
       const updatedAnswers = existingAnswers.map(a => {
         const questionId = String(a.question_id);
-        return scoreByQuestionId.has(questionId)
-          ? { ...a, is_correct: scoreByQuestionId.get(questionId) }
-          : a;
+        return {
+          ...a,
+          ...(scoreByQuestionId.has(questionId) ? { is_correct: scoreByQuestionId.get(questionId) } : {}),
+          ...(essayScoreByQuestionId.has(questionId) ? { essay_score: essayScoreByQuestionId.get(questionId) } : {}),
+        };
       });
       const existingQuestionIds = new Set(existingAnswers.map((answer) => String(answer.question_id)));
 
@@ -451,25 +503,59 @@ export class TeacherExamsService {
 
       const { data: questions, error: questionError } = await this.supabase
         .from('questionnaires')
-        .select('id')
+        .select('id, type')
         .eq('exam_id', submission.exam_id)
         .is('deleted_at', null);
 
       if (questionError) throw new InternalServerErrorException(questionError.message);
 
-      const questionIds = (questions || []).map((question) => String(question.id));
-      const correctCount = questionIds.filter((questionId) => {
+      const multipleChoiceIds = (questions || [])
+        .filter((question) => question.type === 'multiple_choice')
+        .map((question) => String(question.id));
+      const essayQuestionIds = (questions || [])
+        .filter((question) => question.type !== 'multiple_choice')
+        .map((question) => String(question.id));
+      const correctMultipleChoiceCount = multipleChoiceIds.filter((questionId) => {
         const answer = updatedAnswers.find((item) => String(item.question_id) === questionId);
         return answer?.is_correct === true;
       }).length;
-      const calculatedScore = questionIds.length
-        ? Math.round((correctCount / questionIds.length) * 100)
+
+      const multipleChoiceScore = multipleChoiceIds.length
+        ? Math.round((correctMultipleChoiceCount / multipleChoiceIds.length) * 100)
+        : null;
+
+      const essayQuestionScores = essayQuestionIds.map((questionId) => {
+        const answer = updatedAnswers.find((item) => String(item.question_id) === questionId);
+        return this.clampScore(answer?.essay_score);
+      });
+
+      if (essayQuestionScores.some((score) => score === null)) {
+        throw new BadRequestException('Setiap jawaban essay wajib diberi nilai 0 sampai 100');
+      }
+
+      const validEssayQuestionScores = essayQuestionScores as number[];
+      const essayScore = validEssayQuestionScores.length
+        ? Math.round(
+            validEssayQuestionScores.reduce((sum, score) => sum + score, 0) / validEssayQuestionScores.length,
+          )
+        : null;
+
+      const scoreComponents = [
+        multipleChoiceScore,
+        essayScore,
+      ].filter((score): score is number => score !== null);
+      const calculatedScore = scoreComponents.length
+        ? Math.round(scoreComponents.reduce((sum, score) => sum + score, 0) / scoreComponents.length)
         : Math.max(0, Math.min(100, Math.round(Number(totalScore || 0))));
+
+      const answersForStorage = updatedAnswers.filter(
+        (answer) => String(answer?.question_id) !== '__essay_score__',
+      );
 
       const { data, error: updateError } = await this.supabase
         .from('exam_submissions')
         .update({
-          answers: updatedAnswers,
+          answers: answersForStorage,
           score: calculatedScore,
         })
         .eq('id', submissionId)
@@ -484,7 +570,7 @@ export class TeacherExamsService {
         score: data?.score,
       };
     } catch (err: any) {
-      if (err instanceof BadRequestException || err instanceof NotFoundException) throw err;
+      if (err instanceof HttpException) throw err;
       throw new InternalServerErrorException(err.message);
     }
   }

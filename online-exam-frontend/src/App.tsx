@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
 import ProtectedRoute from "./routes/ProtectedRoutes";
+import { startVideoUploadQueue } from "./utils/backgroundVideoUpload";
 
 // Importing the pages
 import Login from "./pages/Login.jsx";
@@ -21,6 +23,10 @@ import Reports from "./pages/Reports.jsx";
 import Classes from "./pages/Classes.jsx";
 
 function App() {
+  useEffect(() => {
+    startVideoUploadQueue();
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>

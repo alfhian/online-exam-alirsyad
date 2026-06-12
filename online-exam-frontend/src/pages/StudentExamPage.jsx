@@ -4,6 +4,7 @@ import api from "../api/axiosConfig";
 import Swal from "sweetalert2";
 import RichTextRenderer from "../components/RichTextRenderer";
 import LoadingButton from "../components/LoadingButton";
+import { enqueueVideoUpload } from "../utils/backgroundVideoUpload";
 
 /* ---------------- Helper ---------------- */
 
@@ -60,6 +61,7 @@ const StudentExamPage = () => {
   const internalNavigationRef = useRef(false);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
+  const autoSubmittedRef = useRef(false);
 
   useEffect(() => {
     submittingRef.current = submitting;
@@ -107,23 +109,6 @@ const StudentExamPage = () => {
     fetchExam();
   }, [examId, navigate]);
 
-  /* ---------------- Timer ---------------- */
-  useEffect(() => {
-    if (!exam) return;
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          Swal.fire("Waktu Habis!", "Ujian sudah selesai", "warning");
-          navigate("/student/exam");
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [exam, navigate]);
-
   /* ---------------- Proctoring ---------------- */
   const violationRef = useRef(0);
   const alarm = useRef(new Audio("https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3"));
@@ -141,6 +126,14 @@ const StudentExamPage = () => {
       violationRef.current += 1;
 
       if (violationRef.current >= 3) {
+        if (sessionId) {
+          await api
+            .post(`/exam-sessions/${sessionId}/disqualify`, {
+              reason: "proctoring_violation",
+            })
+            .catch((err) => console.error("Gagal menandai sesi diskualifikasi:", err));
+        }
+
         await Swal.fire({
           title: "DISKUALIFIKASI!",
           text: "Anda telah melakukan pelanggaran lebih dari 2 kali. Sesi ujian Anda dihentikan.",
@@ -254,45 +247,14 @@ const StudentExamPage = () => {
           return;
         }
 
-        // Create FormData and inspect entry
-        const formData = new FormData();
-        formData.append("file", blob, "exam-recording.webm");
-
-        // Log FormData entries - note: for files we can inspect the File object
-        for (const pair of formData.entries()) {
-          const [name, value] = pair;
-          if (value instanceof File || value instanceof Blob) {
-            console.log(`FormData entry: ${name}, filename: ${value.name || "N/A"}, size: ${value.size}, type: ${value.type}`);
-          } else {
-            console.log("FormData entry:", name, value);
-          }
-        }
-
-        // Log token/header info (but jangan log token ke public logs in production)
-        const token = localStorage.getItem("token");
-        console.log("Token present:", !!token);
-
         try {
-          console.log("➡️ Starting fetch upload...");
-          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/exam-sessions/${sessionId}/upload-video`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`, // Jangan set Content-Type
-            },
-            body: formData,
+          await enqueueVideoUpload({
+            sessionId,
+            blob,
+            fileName: "exam-recording.webm",
           });
-
-          console.log("Fetch response status:", res.status, res.statusText);
-          const text = await res.text();
-          console.log("Response body text:", text);
-
-          if (!res.ok) {
-            console.error("❌ Upload failed:", res.status, text);
-          } else {
-            console.log("✅ Upload successful");
-          }
         } catch (err) {
-          console.error("🔥 Fetch error:", err);
+          console.error("Gagal memasukkan rekaman ke queue upload:", err);
         } finally {
           // stop camera tracks (safety)
           try {
@@ -404,7 +366,7 @@ const StudentExamPage = () => {
     );
   };
 
-  const submitExamWithRetry = async (payload) => {
+  const submitExamWithRetry = useCallback(async (payload) => {
     try {
       return await api.post(`/exam-submissions/${examId}`, payload, {
         timeout: SUBMIT_TIMEOUT_MS,
@@ -423,31 +385,34 @@ const StudentExamPage = () => {
         timeout: SUBMIT_TIMEOUT_MS,
       });
     }
-  };
+  }, [examId]);
 
-  const handleSubmit = async () => {
-    // 🔹 Tampilkan konfirmasi
-    const result = await Swal.fire({
-      title: "Yakin ingin mengirim jawaban?",
-      text: "Pastikan semua jawaban sudah benar. Setelah dikirim, kamu tidak bisa mengubah jawaban lagi.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Ya, kirim sekarang!",
-      cancelButtonText: "Batal",
-      reverseButtons: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-    });
+  const handleSubmit = useCallback(async ({ auto = false } = {}) => {
+    if (submittingRef.current) return;
 
-    if (!result.isConfirmed) {
-      Swal.fire({
-        icon: "info",
-        title: "Dibatalkan",
-        text: "Kamu bisa memeriksa kembali jawaban sebelum mengirim.",
-        timer: 2000,
-        showConfirmButton: false,
+    if (!auto) {
+      const result = await Swal.fire({
+        title: "Yakin ingin mengirim jawaban?",
+        text: "Pastikan semua jawaban sudah benar. Setelah dikirim, kamu tidak bisa mengubah jawaban lagi.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Ya, kirim sekarang!",
+        cancelButtonText: "Batal",
+        reverseButtons: true,
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
       });
-      return;
+
+      if (!result.isConfirmed) {
+        Swal.fire({
+          icon: "info",
+          title: "Dibatalkan",
+          text: "Kamu bisa memeriksa kembali jawaban sebelum mengirim.",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+        return;
+      }
     }
 
     try {
@@ -455,8 +420,10 @@ const StudentExamPage = () => {
       setSubmitting(true);
 
       Swal.fire({
-        title: "Mengirim jawaban...",
-        text: "Mohon tunggu sebentar.",
+        title: auto ? "Waktu habis. Mengirim jawaban..." : "Mengirim jawaban...",
+        text: auto
+          ? "Sistem sedang menyimpan jawaban yang sudah diisi."
+          : "Mohon tunggu sebentar.",
         allowOutsideClick: false,
         didOpen: () => Swal.showLoading(),
       });
@@ -484,8 +451,10 @@ const StudentExamPage = () => {
 
       await Swal.fire({
         icon: "success",
-        title: "Ujian Terkirim!",
-        text: "Jawaban kamu berhasil dikirim. Terima kasih sudah mengikuti ujian.",
+        title: auto ? "Waktu Habis!" : "Ujian Terkirim!",
+        text: auto
+          ? "Waktu ujian selesai. Jawaban yang sudah kamu isi berhasil dikirim."
+          : "Jawaban kamu berhasil dikirim. Terima kasih sudah mengikuti ujian.",
         confirmButtonText: "OK",
       });
 
@@ -502,7 +471,28 @@ const StudentExamPage = () => {
       if (!internalNavigationRef.current) submittingRef.current = false;
       setSubmitting(false);
     }
-  };
+  }, [navigate, questions, sessionId, studentAnswers, submitExamWithRetry]);
+
+  /* ---------------- Timer ---------------- */
+  useEffect(() => {
+    if (!exam || !started || !sessionId) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          if (!autoSubmittedRef.current) {
+            autoSubmittedRef.current = true;
+            void handleSubmit({ auto: true });
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [exam, handleSubmit, sessionId, started]);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
 
