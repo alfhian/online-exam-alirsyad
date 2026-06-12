@@ -401,15 +401,6 @@ export class TeacherExamsService {
       if (error || !submission) throw new NotFoundException('Submission not found');
       await this.assertTeacherCanAccessExam(submission.exam_id, user);
 
-      if (submission.session_id) {
-        const { error: sessionDeleteError } = await this.supabase
-          .from('exam_sessions')
-          .delete()
-          .eq('id', submission.session_id);
-
-        if (sessionDeleteError) throw new InternalServerErrorException(sessionDeleteError.message);
-      }
-
       const { error: jobDeleteError } = await this.supabase
         .from('exam_submission_jobs')
         .delete()
@@ -423,6 +414,15 @@ export class TeacherExamsService {
         .eq('id', submissionId);
 
       if (submissionDeleteError) throw new InternalServerErrorException(submissionDeleteError.message);
+
+      if (submission.session_id) {
+        const { error: sessionDeleteError } = await this.supabase
+          .from('exam_sessions')
+          .delete()
+          .eq('id', submission.session_id);
+
+        if (sessionDeleteError) throw new InternalServerErrorException(sessionDeleteError.message);
+      }
 
       return {
         message: 'Submission canceled successfully',
