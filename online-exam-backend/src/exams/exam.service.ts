@@ -48,6 +48,32 @@ export class ExamService {
     return Boolean(value && typeof value === 'object' && Object.keys(value as object).length > 0);
   }
 
+  private normalizeScoreWeights(
+    multipleChoiceWeight?: unknown,
+    essayWeight?: unknown,
+    fallback = { multiple_choice_weight: 50, essay_weight: 50 },
+  ) {
+    const mcWeight = Number(multipleChoiceWeight);
+    const esWeight = Number(essayWeight);
+
+    if (
+      Number.isInteger(mcWeight) &&
+      Number.isInteger(esWeight) &&
+      mcWeight >= 0 &&
+      esWeight >= 0 &&
+      mcWeight <= 100 &&
+      esWeight <= 100 &&
+      mcWeight + esWeight === 100
+    ) {
+      return {
+        multiple_choice_weight: mcWeight,
+        essay_weight: esWeight,
+      };
+    }
+
+    return fallback;
+  }
+
   private sortExamRows(exams: any[], sort: string, order: 'asc' | 'desc'): any[] {
     const direction = order === 'asc' ? 1 : -1;
 
@@ -129,6 +155,8 @@ export class ExamService {
       subject_id: string;
       type: string;
       duration: number;
+      multiple_choice_weight: number;
+      essay_weight: number;
       notes?: string | null;
       created_by: string;
       deleted_at?: string | null;
@@ -154,6 +182,7 @@ export class ExamService {
     .insert([{
       ...dto,
       date: this.normalizeExamDate(dto.date),
+      ...this.normalizeScoreWeights(dto.multiple_choice_weight, dto.essay_weight),
       notes: dto.notes ?? null,
     }] as ExamRow[]) // paksa ke ExamRow[]
     .select('*')
@@ -256,11 +285,21 @@ export class ExamService {
       }
     }
 
+    const scoreWeights = this.normalizeScoreWeights(
+      dto.multiple_choice_weight,
+      dto.essay_weight,
+      {
+        multiple_choice_weight: oldData.multiple_choice_weight ?? 50,
+        essay_weight: oldData.essay_weight ?? 50,
+      },
+    );
+
     const updatedRow = {
       title: dto.title ?? oldData.title,
       subject_id: dto.subject_id ?? oldData.subject_id,
       type: dto.type ?? oldData.type,
       duration: dto.duration ?? oldData.duration,
+      ...scoreWeights,
       notes: dto.notes ?? oldData.notes ?? null,
       date: dto.date ? this.normalizeExamDate(dto.date) : oldData.date,
       updated_by: (dto as any).updated_by ?? oldData.updated_by ?? null,

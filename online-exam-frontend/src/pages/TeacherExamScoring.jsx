@@ -94,12 +94,18 @@ const TeacherExamScoring = () => {
     const safeEssayScore = totalEssayScore !== null
       ? Math.round(totalEssayScore / essayQuestionScores.length)
       : null;
+    const multipleChoiceWeight = Math.max(0, Math.min(100, Number(submission?.exam?.multiple_choice_weight ?? 50)));
+    const essayWeight = Math.max(0, Math.min(100, Number(submission?.exam?.essay_weight ?? 50)));
     const components = [
-      multipleChoiceScore,
-      essayQuestions.length > 0 ? safeEssayScore : null,
-    ].filter((score) => score !== null);
+      { score: multipleChoiceScore, weight: multipleChoiceWeight },
+      { score: essayQuestions.length > 0 ? safeEssayScore : null, weight: essayWeight },
+    ].filter((component) => component.score !== null);
+    const activeWeightTotal = components.reduce((sum, component) => sum + component.weight, 0);
     const finalScore = components.length
-      ? Math.round(components.reduce((sum, score) => sum + score, 0) / components.length)
+      ? Math.round(
+          components.reduce((sum, component) => sum + component.score * component.weight, 0) /
+            (activeWeightTotal || components.length),
+        )
       : 0;
 
     return {
@@ -110,6 +116,8 @@ const TeacherExamScoring = () => {
       essayQuestionScores,
       totalEssayScore,
       safeEssayScore,
+      multipleChoiceWeight,
+      essayWeight,
       finalScore,
     };
   }, [essayScores, scoring, submission]);
@@ -251,7 +259,7 @@ const TeacherExamScoring = () => {
                   </p>
                   <p className="text-xs text-emerald-700 mt-1">
                     {scoreSummary.essayQuestions.length > 0 && scoreSummary.multipleChoiceQuestions.length > 0
-                      ? "(Nilai PG + Nilai Essay) / 2"
+                      ? `PG ${scoreSummary.multipleChoiceWeight}% + Essay ${scoreSummary.essayWeight}%`
                       : scoreSummary.essayQuestions.length > 0
                         ? "Mengikuti nilai essay"
                         : "Mengikuti nilai PG"}

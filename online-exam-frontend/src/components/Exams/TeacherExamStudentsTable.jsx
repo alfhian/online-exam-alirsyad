@@ -38,6 +38,46 @@ const TeacherExamStudentsTable = ({ data, searchParams, setSearchParams, onRefre
     navigate(`/teacher-exam/submission/${submissionId}`);
   };
 
+  const getScoreColor = (score) => {
+    if (score < 50) return "bg-rose-50 text-rose-700 border-rose-100";
+    if (score < 75) return "bg-amber-50 text-amber-700 border-amber-100";
+    return "bg-green-50 text-green-700 border-green-100";
+  };
+
+  const renderScore = (submission, compact = false) => {
+    if (submission.score != null) {
+      return (
+        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getScoreColor(submission.score)}`}>
+          {submission.score}
+        </span>
+      );
+    }
+
+    if (submission.multiple_choice_score != null) {
+      return (
+        <div className={`flex ${compact ? "items-start" : "items-center justify-center"} gap-1.5 flex-wrap`}>
+          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getScoreColor(submission.multiple_choice_score)}`}>
+            {submission.multiple_choice_score}
+          </span>
+          <span className="px-2 py-0.5 rounded text-[9px] font-bold border bg-blue-50 text-blue-700 border-blue-100">
+            PG only
+          </span>
+          {submission.essay_pending && (
+            <span className="px-2 py-0.5 rounded text-[9px] font-bold border bg-slate-50 text-slate-500 border-slate-100">
+              Essay belum dinilai
+            </span>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <span className="px-2 py-0.5 rounded text-[10px] font-bold border bg-slate-50 text-slate-400 border-slate-100 italic">
+        Belum Dinilai
+      </span>
+    );
+  };
+
   const handleCancelSubmission = async (submissionId) => {
     const result = await Swal.fire({
       title: "Batalkan submission?",
@@ -120,22 +160,7 @@ const TeacherExamStudentsTable = ({ data, searchParams, setSearchParams, onRefre
                     {formatDateOnly(submission.created_at)}
                   </td>
                   <td className="px-4 py-4 text-center">
-                    {submission.score != null ? (
-                      (() => {
-                        let color = "bg-green-50 text-green-700 border-green-100";
-                        if (submission.score < 50) color = "bg-rose-50 text-rose-700 border-rose-100";
-                        else if (submission.score < 75) color = "bg-amber-50 text-amber-700 border-amber-100";
-                        return (
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${color}`}>
-                            {submission.score}
-                          </span>
-                        );
-                      })()
-                    ) : (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold border bg-slate-50 text-slate-400 border-slate-100 italic">
-                        Belum Dinilai
-                      </span>
-                    )}
+                    {renderScore(submission)}
                   </td>
                   <td className="px-4 py-4 text-center">
                     <ActionMenu
@@ -197,13 +222,7 @@ const TeacherExamStudentsTable = ({ data, searchParams, setSearchParams, onRefre
                 <div>
                   <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1">Nilai Akhir</p>
                   <p className="text-xs font-bold">
-                    {submission.score != null ? (
-                      <span className={submission.score < 75 ? "text-amber-500" : "text-emerald-600"}>
-                        {submission.score}
-                      </span>
-                    ) : (
-                      <span className="text-slate-300 italic">Belum Dinilai</span>
-                    )}
+                    {renderScore(submission, true)}
                   </p>
                 </div>
                 <div>

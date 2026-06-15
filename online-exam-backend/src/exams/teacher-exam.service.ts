@@ -63,6 +63,28 @@ export class TeacherExamsService {
     return Math.max(0, Math.min(100, Math.round(score)));
   }
 
+  private normalizeScoreWeight(value: unknown, fallback: number) {
+    const weight = Number(value);
+    if (!Number.isFinite(weight)) return fallback;
+    return Math.max(0, Math.min(100, Math.round(weight)));
+  }
+
+  private getMultipleChoicePreviewScore(answersValue: unknown, questions: any[]) {
+    const multipleChoiceIds = (questions || [])
+      .filter((question) => question.type === 'multiple_choice')
+      .map((question) => String(question.id));
+
+    if (!multipleChoiceIds.length) return null;
+
+    const answers = this.normalizeAnswers(answersValue);
+    const correctCount = multipleChoiceIds.filter((questionId) => {
+      const answer = answers.find((item) => String(item?.question_id) === questionId);
+      return answer?.is_correct === true;
+    }).length;
+
+    return Math.round((correctCount / multipleChoiceIds.length) * 100);
+  }
+
   private sortRows(rows: any[], sort: string, order: 'asc' | 'desc') {
     const direction = order === 'asc' ? 1 : -1;
 
@@ -248,6 +270,16 @@ export class TeacherExamsService {
         return { data: [], meta: { total: 0, page, limit, totalPages: 0, exam } };
 
       // 2️⃣ Ambil semua student terkait
+      const { data: questions, error: questionError } = await this.supabase
+        .from('questionnaires')
+        .select('id, type')
+        .eq('exam_id', examId)
+        .is('deleted_at', null);
+
+      if (questionError) throw new InternalServerErrorException(questionError.message);
+
+      const hasEssay = (questions || []).some((question) => question.type !== 'multiple_choice');
+
       const studentIds = submissions.map(s => s.student_id);
       const { data: students, error: stuError } = await this.supabase
         .from('users')
@@ -261,6 +293,9 @@ export class TeacherExamsService {
         ...sub,
         exam,
         student: students.find(s => s.id === sub.student_id) || null,
+        multiple_choice_score: this.getMultipleChoicePreviewScore(sub.answers, questions || []),
+        is_multiple_choice_only_score: sub.score === null || sub.score === undefined,
+        essay_pending: hasEssay && (sub.score === null || sub.score === undefined),
       }));
 
       // 4️⃣ Filter berdasarkan nama student / userid jika ada search
@@ -524,6 +559,14 @@ export class TeacherExamsService {
         ? Math.round((correctMultipleChoiceCount / multipleChoiceIds.length) * 100)
         : null;
 
+      const { data: examForScoring, error: examWeightError } = await this.supabase
+        .from('exams')
+        .select('multiple_choice_weight, essay_weight')
+        .eq('id', submission.exam_id)
+        .single();
+
+      if (examWeightError) throw new InternalServerErrorException(examWeightError.message);
+
       const essayQuestionScores = essayQuestionIds.map((questionId) => {
         const answer = updatedAnswers.find((item) => String(item.question_id) === questionId);
         return this.clampScore(answer?.essay_score);
@@ -540,11 +583,21 @@ export class TeacherExamsService {
         : null;
 
       const scoreComponents = [
-        multipleChoiceScore,
-        essayScore,
-      ].filter((score): score is number => score !== null);
+        {
+          score: multipleChoiceScore,
+          weight: this.normalizeScoreWeight(examForScoring?.multiple_choice_weight, 50),
+        },
+        {
+          score: essayScore,
+          weight: this.normalizeScoreWeight(examForScoring?.essay_weight, 50),
+        },
+      ].filter((component): component is { score: number; weight: number } => component.score !== null);
+      const activeWeightTotal = scoreComponents.reduce((sum, component) => sum + component.weight, 0);
       const calculatedScore = scoreComponents.length
-        ? Math.round(scoreComponents.reduce((sum, score) => sum + score, 0) / scoreComponents.length)
+        ? Math.round(
+            scoreComponents.reduce((sum, component) => sum + component.score * component.weight, 0) /
+              (activeWeightTotal || scoreComponents.length),
+          )
         : Math.max(0, Math.min(100, Math.round(Number(totalScore || 0))));
 
       const answersForStorage = updatedAnswers.filter(

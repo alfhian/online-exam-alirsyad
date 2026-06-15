@@ -5,6 +5,8 @@ export class Exam {
 
   type: string;
   duration: number;
+  multiple_choice_weight?: number;
+  essay_weight?: number;
   notes?: string | null; // bisa null dari DB
 
   created_at: string; // atau Date kalau mau konversi manual

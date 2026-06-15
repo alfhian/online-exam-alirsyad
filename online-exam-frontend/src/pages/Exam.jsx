@@ -28,7 +28,14 @@ const initialExamForm = {
   type: "Reguler",
   date: "",
   duration: 0,
+  multiple_choice_weight: 50,
+  essay_weight: 50,
 };
+const scoreWeightOptions = [
+  { label: "70:30", multipleChoice: 70, essay: 30 },
+  { label: "60:40", multipleChoice: 60, essay: 40 },
+  { label: "50:50", multipleChoice: 50, essay: 50 },
+];
 
 const Exam = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -58,6 +65,15 @@ const Exam = () => {
   const handleDateChange = (date) => {
     const formatted = format(date, "yyyy-MM-dd");
     setFormData((prev) => ({ ...prev, date: formatted }));
+  };
+
+  const handleScoreWeightChange = (value) => {
+    const option = scoreWeightOptions.find((item) => item.label === value) || scoreWeightOptions[2];
+    setFormData((prev) => ({
+      ...prev,
+      multiple_choice_weight: option.multipleChoice,
+      essay_weight: option.essay,
+    }));
   };
 
   const fetchExams = async () => {
@@ -130,6 +146,8 @@ const Exam = () => {
           type: exam.type,
           date: exam.date,
           duration: exam.duration,
+          multiple_choice_weight: Number(exam.multiple_choice_weight ?? 50),
+          essay_weight: Number(exam.essay_weight ?? 50),
         });
         setSelectedId(exam.id);
         setEditModalOpen(true);
@@ -366,6 +384,26 @@ const Exam = () => {
                           onChange={handleInputChange}
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
                         />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Bobot Nilai PG : Essay
+                        </label>
+                        <select
+                          value={`${formData.multiple_choice_weight}:${formData.essay_weight}`}
+                          onChange={(e) => handleScoreWeightChange(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                        >
+                          {scoreWeightOptions.map((option) => (
+                            <option key={option.label} value={option.label}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Angka depan adalah bobot Pilihan Ganda, angka belakang adalah bobot Essay.
+                        </p>
                       </div>
 
                       <div>
