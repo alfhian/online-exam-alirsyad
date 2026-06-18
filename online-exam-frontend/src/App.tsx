@@ -88,6 +88,14 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/laporan/:reportType"
+          element={
+            <ProtectedRoute allowedRoles={["ADMIN", "GURU"]}>
+              <Reports />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/student/exam"

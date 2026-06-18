@@ -58,5 +58,27 @@ export const menus = [
     title: 'Laporan',
     icon: 'FaChartBar',
     path: '/laporan',
+    children: [
+      {
+        name: 'report_exam',
+        title: 'Report Ujian',
+        path: '/laporan/ujian',
+      },
+      {
+        name: 'report_submission',
+        title: 'Report Submission',
+        path: '/laporan/submission',
+      },
+      {
+        name: 'report_subject',
+        title: 'Report Mapel',
+        path: '/laporan/mapel',
+      },
+      {
+        name: 'report_student',
+        title: 'Report Nilai Siswa',
+        path: '/laporan/nilai-siswa',
+      },
+    ],
   },
 ];

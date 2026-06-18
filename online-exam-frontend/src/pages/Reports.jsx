@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import api from "../api/axiosConfig";
 import SubjectSelect from "../components/DropdownSubject";
@@ -23,13 +24,58 @@ const downloadFile = (content, fileName, type) => {
 
 const firstRelation = (value) => (Array.isArray(value) ? value[0] : value) || null;
 
+const reportConfig = {
+  ujian: {
+    key: "exam",
+    title: "Report Ujian",
+    description: "Daftar ujian berdasarkan tanggal ujian, tipe, mapel, kelas, dan judul ujian.",
+  },
+  submission: {
+    key: "submission",
+    title: "Report Submission",
+    description: "Daftar submission siswa berdasarkan tanggal submit, ujian, siswa, status nilai, dan rentang nilai.",
+  },
+  mapel: {
+    key: "subject",
+    title: "Report Mapel",
+    description: "Ringkasan performa setiap mata pelajaran berdasarkan ujian dan submission siswa.",
+  },
+  "nilai-siswa": {
+    key: "student",
+    title: "Report Nilai Siswa",
+    description: "Ringkasan nilai per siswa dengan filter nama, NIS, kelas, status kelulusan, dan rentang rata-rata.",
+  },
+};
+
+const includesText = (value, keyword) =>
+  !keyword || String(value ?? "").toLowerCase().includes(keyword.trim().toLowerCase());
+
+const numberInRange = (value, min, max) => {
+  const numberValue = value === "-" || value === null || value === undefined ? null : Number(value);
+  if (min !== "" && (numberValue === null || numberValue < Number(min))) return false;
+  if (max !== "" && (numberValue === null || numberValue > Number(max))) return false;
+  return true;
+};
+
 const Reports = () => {
-  const [activeTab, setActiveTab] = useState("exam");
+  const { reportType = "ujian" } = useParams();
+  const navigate = useNavigate();
+  const activeConfig = reportConfig[reportType] || reportConfig.ujian;
+  const activeTab = activeConfig.key;
   const [filters, setFilters] = useState({
     from: "",
     to: "",
     subjectId: "",
     examType: "",
+    keyword: "",
+    className: "",
+    scoreMin: "",
+    scoreMax: "",
+    averageMin: "",
+    averageMax: "",
+    scoreStatus: "",
+    passStatus: "",
+    submissionMin: "",
   });
 
   const [examRows, setExamRows] = useState([]);
@@ -37,6 +83,10 @@ const Reports = () => {
   const [subjectRows, setSubjectRows] = useState([]);
   const [studentRows, setStudentRows] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!reportConfig[reportType]) navigate("/laporan/ujian", { replace: true });
+  }, [navigate, reportType]);
 
   const params = useMemo(() => {
     const payload = {};
@@ -70,9 +120,84 @@ const Reports = () => {
     fetchData();
   }, [params]);
 
+  const filteredExamRows = useMemo(() => {
+    return examRows.filter((row) => {
+      const subject = firstRelation(row.subjects);
+      return (
+        includesText(row.title, filters.keyword) &&
+        includesText(subject?.class_id, filters.className)
+      );
+    });
+  }, [examRows, filters.className, filters.keyword]);
+
+  const filteredSubmissionRows = useMemo(() => {
+    return submissionRows.filter((row) => {
+      const exam = row.exam || firstRelation(row.exams);
+      const subject = row.subject || firstRelation(exam?.subjects);
+      const student = row.student || row.users || {};
+      const score = row.score ?? null;
+      const scored = score !== null && score !== undefined && score !== "";
+
+      if (filters.scoreStatus === "scored" && !scored) return false;
+      if (filters.scoreStatus === "unscored" && scored) return false;
+
+      return (
+        [student.name, student.userid, exam?.title].some((value) => includesText(value, filters.keyword)) &&
+        includesText(subject?.class_id, filters.className) &&
+        numberInRange(score, filters.scoreMin, filters.scoreMax)
+      );
+    });
+  }, [filters.className, filters.keyword, filters.scoreMax, filters.scoreMin, filters.scoreStatus, submissionRows]);
+
+  const filteredSubjectRows = useMemo(() => {
+    return subjectRows.filter((row) => {
+      if (filters.scoreStatus === "scored" && Number(row.scoredSubmissions || 0) <= 0) return false;
+      if (filters.scoreStatus === "unscored" && Number(row.unscoredSubmissions || 0) <= 0) return false;
+      if (filters.submissionMin !== "" && Number(row.totalSubmissions || 0) < Number(filters.submissionMin)) return false;
+
+      return (
+        includesText(row.subject, filters.keyword) &&
+        includesText(row.class_id, filters.className) &&
+        numberInRange(row.averageScore, filters.averageMin, filters.averageMax)
+      );
+    });
+  }, [
+    filters.averageMax,
+    filters.averageMin,
+    filters.className,
+    filters.keyword,
+    filters.scoreStatus,
+    filters.submissionMin,
+    subjectRows,
+  ]);
+
+  const filteredStudentRows = useMemo(() => {
+    return studentRows.filter((row) => {
+      const averageScore = row.averageScore ?? null;
+      if (filters.scoreStatus === "scored" && Number(row.scoredSubmissions || 0) <= 0) return false;
+      if (filters.scoreStatus === "unscored" && Number(row.unscoredSubmissions || 0) <= 0) return false;
+      if (filters.passStatus === "passed" && Number(row.passedCount || 0) <= 0) return false;
+      if (filters.passStatus === "failed" && Number(row.failedCount || 0) <= 0) return false;
+
+      return (
+        [row.student, row.userid, row.subjects].some((value) => includesText(value, filters.keyword)) &&
+        includesText(row.class_id, filters.className) &&
+        numberInRange(averageScore, filters.averageMin, filters.averageMax)
+      );
+    });
+  }, [
+    filters.averageMax,
+    filters.averageMin,
+    filters.className,
+    filters.keyword,
+    filters.passStatus,
+    filters.scoreStatus,
+    studentRows,
+  ]);
+
   const normalizedRows = useMemo(() => {
     if (activeTab === "exam") {
-      return examRows.map((row) => ({
+      return filteredExamRows.map((row) => ({
         judul: row.title,
         tipe: row.type,
         tanggal: row.date,
@@ -83,7 +208,7 @@ const Reports = () => {
     }
 
     if (activeTab === "submission") {
-      return submissionRows.map((row) => ({
+      return filteredSubmissionRows.map((row) => ({
         ujian: row.exam?.title || firstRelation(row.exams)?.title || "-",
         tipe: row.exam?.type || firstRelation(row.exams)?.type || "-",
         mapel: row.subject?.name || firstRelation(firstRelation(row.exams)?.subjects)?.name || "-",
@@ -95,7 +220,7 @@ const Reports = () => {
     }
 
     if (activeTab === "subject") {
-      return subjectRows.map((row) => ({
+      return filteredSubjectRows.map((row) => ({
         mapel: row.subject,
         kelas: row.class_id,
         total_siswa: row.totalStudents,
@@ -111,7 +236,7 @@ const Reports = () => {
       }));
     }
 
-    return studentRows.map((row) => ({
+    return filteredStudentRows.map((row) => ({
       siswa: row.student,
       nis_nik: row.userid,
       kelas: row.class_id || "-",
@@ -127,7 +252,7 @@ const Reports = () => {
       lulus: row.passedCount,
       belum_lulus: row.failedCount,
     }));
-  }, [activeTab, examRows, submissionRows, subjectRows, studentRows]);
+  }, [activeTab, filteredExamRows, filteredStudentRows, filteredSubjectRows, filteredSubmissionRows]);
 
   const exportCsv = () => {
     downloadFile(toCsv(normalizedRows), `report-${activeTab}.csv`, "text/csv;charset=utf-8;");
@@ -149,7 +274,7 @@ const Reports = () => {
     if (type === previousTab) return normalizedRows;
 
     if (type === "submission") {
-      return submissionRows.map((row) => ({
+      return filteredSubmissionRows.map((row) => ({
         ujian: row.exam?.title || firstRelation(row.exams)?.title || "-",
         tipe: row.exam?.type || firstRelation(row.exams)?.type || "-",
         mapel: row.subject?.name || firstRelation(firstRelation(row.exams)?.subjects)?.name || "-",
@@ -161,7 +286,7 @@ const Reports = () => {
     }
 
     if (type === "subject") {
-      return subjectRows.map((row) => ({
+      return filteredSubjectRows.map((row) => ({
         mapel: row.subject,
         kelas: row.class_id,
         total_siswa: row.totalStudents,
@@ -178,7 +303,7 @@ const Reports = () => {
     }
 
     if (type === "student") {
-      return studentRows.map((row) => ({
+      return filteredStudentRows.map((row) => ({
         siswa: row.student,
         nis_nik: row.userid,
         kelas: row.class_id || "-",
@@ -196,7 +321,14 @@ const Reports = () => {
       }));
     }
 
-    return [];
+    return filteredExamRows.map((row) => ({
+      judul: row.title,
+      tipe: row.type,
+      tanggal: row.date,
+      durasi: row.duration,
+      mapel: row.subjects?.name || "-",
+      kelas: row.subjects?.class_id || "-",
+    }));
   };
 
   const exportAcademicExcel = () => {
@@ -217,43 +349,188 @@ const Reports = () => {
     XLSX.writeFile(workbook, "report-akademik.xlsx");
   };
 
+  const updateFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
+  const resetFilters = () => {
+    setFilters({
+      from: "",
+      to: "",
+      subjectId: "",
+      examType: "",
+      keyword: "",
+      className: "",
+      scoreMin: "",
+      scoreMax: "",
+      averageMin: "",
+      averageMax: "",
+      scoreStatus: "",
+      passStatus: "",
+      submissionMin: "",
+    });
+  };
+
+  const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100";
+  const labelClass = "space-y-1 text-xs font-semibold text-slate-600";
+
+  const renderCommonDateSubjectTypeFilters = ({ dateLabel = "Tanggal ujian", showType = true } = {}) => (
+    <>
+      <label className={labelClass}>
+        <span>Dari {dateLabel}</span>
+        <input className={inputClass} type="date" value={filters.from} onChange={(e) => updateFilter("from", e.target.value)} />
+      </label>
+      <label className={labelClass}>
+        <span>Sampai {dateLabel}</span>
+        <input className={inputClass} type="date" value={filters.to} onChange={(e) => updateFilter("to", e.target.value)} />
+      </label>
+      <div className={labelClass}>
+        <span>Mata Pelajaran</span>
+        <SubjectSelect subject={filters.subjectId} setSubject={(v) => updateFilter("subjectId", v || "")} />
+      </div>
+      {showType && (
+        <label className={labelClass}>
+          <span>Tipe Ujian</span>
+          <select className={inputClass} value={filters.examType} onChange={(e) => updateFilter("examType", e.target.value)}>
+            <option value="">Semua Tipe</option>
+            <option value="REGULER">Reguler</option>
+            <option value="REMEDIAL">Remedial</option>
+          </select>
+        </label>
+      )}
+    </>
+  );
+
+  const renderFilters = () => {
+    if (activeTab === "exam") {
+      return (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {renderCommonDateSubjectTypeFilters()}
+          <label className={labelClass}>
+            <span>Judul Ujian</span>
+            <input className={inputClass} value={filters.keyword} onChange={(e) => updateFilter("keyword", e.target.value)} placeholder="Cari judul ujian..." />
+          </label>
+          <label className={labelClass}>
+            <span>Kelas</span>
+            <input className={inputClass} value={filters.className} onChange={(e) => updateFilter("className", e.target.value)} placeholder="Contoh: X TKJ" />
+          </label>
+        </div>
+      );
+    }
+
+    if (activeTab === "submission") {
+      return (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-7">
+          {renderCommonDateSubjectTypeFilters({ dateLabel: "tanggal submit" })}
+          <label className={labelClass}>
+            <span>Siswa / NIS / Ujian</span>
+            <input className={inputClass} value={filters.keyword} onChange={(e) => updateFilter("keyword", e.target.value)} placeholder="Cari siswa, NIS, ujian..." />
+          </label>
+          <label className={labelClass}>
+            <span>Status Nilai</span>
+            <select className={inputClass} value={filters.scoreStatus} onChange={(e) => updateFilter("scoreStatus", e.target.value)}>
+              <option value="">Semua Status</option>
+              <option value="scored">Sudah Dinilai</option>
+              <option value="unscored">Belum Dinilai</option>
+            </select>
+          </label>
+          <label className={labelClass}>
+            <span>Nilai Min</span>
+            <input className={inputClass} type="number" min="0" max="100" value={filters.scoreMin} onChange={(e) => updateFilter("scoreMin", e.target.value)} />
+          </label>
+          <label className={labelClass}>
+            <span>Nilai Max</span>
+            <input className={inputClass} type="number" min="0" max="100" value={filters.scoreMax} onChange={(e) => updateFilter("scoreMax", e.target.value)} />
+          </label>
+        </div>
+      );
+    }
+
+    if (activeTab === "subject") {
+      return (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-7">
+          {renderCommonDateSubjectTypeFilters()}
+          <label className={labelClass}>
+            <span>Mapel</span>
+            <input className={inputClass} value={filters.keyword} onChange={(e) => updateFilter("keyword", e.target.value)} placeholder="Cari mapel..." />
+          </label>
+          <label className={labelClass}>
+            <span>Kelas</span>
+            <input className={inputClass} value={filters.className} onChange={(e) => updateFilter("className", e.target.value)} placeholder="Contoh: XI" />
+          </label>
+          <label className={labelClass}>
+            <span>Rata-rata Min</span>
+            <input className={inputClass} type="number" min="0" max="100" value={filters.averageMin} onChange={(e) => updateFilter("averageMin", e.target.value)} />
+          </label>
+          <label className={labelClass}>
+            <span>Submission Min</span>
+            <input className={inputClass} type="number" min="0" value={filters.submissionMin} onChange={(e) => updateFilter("submissionMin", e.target.value)} />
+          </label>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-7">
+        {renderCommonDateSubjectTypeFilters()}
+        <label className={labelClass}>
+          <span>Nama / NIS / Mapel</span>
+          <input className={inputClass} value={filters.keyword} onChange={(e) => updateFilter("keyword", e.target.value)} placeholder="Cari siswa, NIS, mapel..." />
+        </label>
+        <label className={labelClass}>
+          <span>Kelas</span>
+          <input className={inputClass} value={filters.className} onChange={(e) => updateFilter("className", e.target.value)} placeholder="Contoh: X TKJ" />
+        </label>
+        <label className={labelClass}>
+          <span>Status Nilai</span>
+          <select className={inputClass} value={filters.scoreStatus} onChange={(e) => updateFilter("scoreStatus", e.target.value)}>
+            <option value="">Semua Status</option>
+            <option value="scored">Sudah Ada Nilai</option>
+            <option value="unscored">Ada Belum Dinilai</option>
+          </select>
+        </label>
+        <label className={labelClass}>
+          <span>Status Kelulusan</span>
+          <select className={inputClass} value={filters.passStatus} onChange={(e) => updateFilter("passStatus", e.target.value)}>
+            <option value="">Semua</option>
+            <option value="passed">Pernah Lulus</option>
+            <option value="failed">Ada Tidak Lulus</option>
+          </select>
+        </label>
+        <label className={labelClass}>
+          <span>Rata-rata Min</span>
+          <input className={inputClass} type="number" min="0" max="100" value={filters.averageMin} onChange={(e) => updateFilter("averageMin", e.target.value)} />
+        </label>
+        <label className={labelClass}>
+          <span>Rata-rata Max</span>
+          <input className={inputClass} type="number" min="0" max="100" value={filters.averageMax} onChange={(e) => updateFilter("averageMax", e.target.value)} />
+        </label>
+      </div>
+    );
+  };
+
   return (
-    <Sidebar>
+    <Sidebar pageTitle={activeConfig.title}>
       <div className="module-shell space-y-5">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
-          <h1 className="module-title">Laporan Akademik</h1>
+          <h1 className="module-title">{activeConfig.title}</h1>
           <p className="mt-2 text-slate-600">
-            Filter data, lihat laporan, lalu export CSV/Excel. Filter tanggal memakai tanggal ujian untuk Report Ujian,
-            Report Mapel, dan Report Nilai Siswa. Report Submission memakai tanggal submit.
+            {activeConfig.description}
           </p>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <label className="space-y-1 text-xs font-semibold text-slate-600">
-              <span>Dari tanggal</span>
-              <input type="date" value={filters.from} onChange={(e) => setFilters((p) => ({ ...p, from: e.target.value }))} />
-            </label>
-            <label className="space-y-1 text-xs font-semibold text-slate-600">
-              <span>Sampai tanggal</span>
-              <input type="date" value={filters.to} onChange={(e) => setFilters((p) => ({ ...p, to: e.target.value }))} />
-            </label>
-            <SubjectSelect subject={filters.subjectId} setSubject={(v) => setFilters((p) => ({ ...p, subjectId: v || "" }))} />
-            <select value={filters.examType} onChange={(e) => setFilters((p) => ({ ...p, examType: e.target.value }))}>
-              <option value="">Semua Tipe</option>
-              <option value="REGULER">Reguler</option>
-              <option value="REMEDIAL">Remedial</option>
-            </select>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-bold text-slate-700">Filter {activeConfig.title}</h3>
+            <button className="module-action-btn bg-slate-100 text-slate-700" onClick={resetFilters}>
+              Reset Filter
+            </button>
           </div>
+          {renderFilters()}
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
           <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 lg:flex">
-              <button className={`module-action-btn ${activeTab === "exam" ? "btn-primary text-white" : "bg-slate-100 text-slate-700"}`} onClick={() => setActiveTab("exam")}>Report Ujian</button>
-              <button className={`module-action-btn ${activeTab === "submission" ? "btn-primary text-white" : "bg-slate-100 text-slate-700"}`} onClick={() => setActiveTab("submission")}>Report Submission</button>
-              <button className={`module-action-btn ${activeTab === "subject" ? "btn-primary text-white" : "bg-slate-100 text-slate-700"}`} onClick={() => setActiveTab("subject")}>Report Mapel</button>
-              <button className={`module-action-btn ${activeTab === "student" ? "btn-primary text-white" : "bg-slate-100 text-slate-700"}`} onClick={() => setActiveTab("student")}>Report Nilai Siswa</button>
+            <div>
+              <p className="text-sm font-bold text-slate-700">{activeConfig.title}</p>
+              <p className="text-xs text-slate-500">Menampilkan {normalizedRows.length} baris data</p>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:flex">
               <button className="module-action-btn bg-slate-100 text-slate-700" onClick={exportCsv}>Export CSV</button>
