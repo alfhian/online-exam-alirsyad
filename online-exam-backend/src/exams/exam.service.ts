@@ -74,6 +74,19 @@ export class ExamService {
     return fallback;
   }
 
+  private isMissingExamWeightColumn(error: any): boolean {
+    const message = String(`${error?.message || ''} ${error?.details || ''}`).toLowerCase();
+    return (
+      (message.includes('essay_weight') || message.includes('multiple_choice_weight')) &&
+      (message.includes('schema cache') || message.includes('could not find'))
+    );
+  }
+
+  private omitExamWeightColumns<T extends Record<string, any>>(payload: T) {
+    const { multiple_choice_weight, essay_weight, ...rest } = payload;
+    return rest;
+  }
+
   private sortExamRows(exams: any[], sort: string, order: 'asc' | 'desc'): any[] {
     const direction = order === 'asc' ? 1 : -1;
 
@@ -177,18 +190,37 @@ export class ExamService {
       }
     }
 
-    const { data, error } = await this.supabase
-    .from('exams') // string literal nama tabel
-    .insert([{
+    const payload = {
       ...dto,
       date: this.normalizeExamDate(dto.date),
       ...this.normalizeScoreWeights(dto.multiple_choice_weight, dto.essay_weight),
       notes: dto.notes ?? null,
-    }] as ExamRow[]) // paksa ke ExamRow[]
+    } as ExamRow;
+
+    const { data, error } = await this.supabase
+    .from('exams') // string literal nama tabel
+    .insert([payload] as ExamRow[]) // paksa ke ExamRow[]
     .select('*')
     .single();
 
-  if (error) throw new InternalServerErrorException(error.message);
+  if (error) {
+    if (this.isMissingExamWeightColumn(error)) {
+      console.error(
+        'Kolom bobot nilai exam belum tersedia di schema cache. Jalankan migration AddExamScoreWeights1768100000000 di VPS.',
+      );
+
+      const { data: fallbackData, error: fallbackError } = await this.supabase
+        .from('exams')
+        .insert([this.omitExamWeightColumns(payload)])
+        .select('*')
+        .single();
+
+      if (fallbackError) throw new InternalServerErrorException(fallbackError.message);
+      return fallbackData;
+    }
+
+    throw new InternalServerErrorException(error.message);
+  }
   return data;
 }
 
@@ -315,6 +347,25 @@ export class ExamService {
       .single();
 
     if (updateError || !newData) {
+      if (updateError && this.isMissingExamWeightColumn(updateError)) {
+        console.error(
+          'Kolom bobot nilai exam belum tersedia di schema cache. Jalankan migration AddExamScoreWeights1768100000000 di VPS.',
+        );
+
+        const { data: fallbackData, error: fallbackUpdateError } = await this.supabase
+          .from('exams')
+          .update(this.omitExamWeightColumns(updatedRow))
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (fallbackUpdateError || !fallbackData) {
+          throw new InternalServerErrorException(fallbackUpdateError?.message || 'Failed to update exam');
+        }
+
+        return mapExamRow(fallbackData);
+      }
+
       throw new InternalServerErrorException(updateError?.message || 'Failed to update exam');
     }
 

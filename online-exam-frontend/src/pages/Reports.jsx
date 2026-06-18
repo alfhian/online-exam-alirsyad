@@ -21,6 +21,8 @@ const downloadFile = (content, fileName, type) => {
   URL.revokeObjectURL(url);
 };
 
+const firstRelation = (value) => (Array.isArray(value) ? value[0] : value) || null;
+
 const Reports = () => {
   const [activeTab, setActiveTab] = useState("exam");
   const [filters, setFilters] = useState({
@@ -82,11 +84,11 @@ const Reports = () => {
 
     if (activeTab === "submission") {
       return submissionRows.map((row) => ({
-        ujian: row.exams?.title || "-",
-        tipe: row.exams?.type || "-",
-        mapel: row.exams?.subjects?.name || "-",
-        siswa: row.users?.name || "-",
-        nis_nik: row.users?.userid || "-",
+        ujian: row.exam?.title || firstRelation(row.exams)?.title || "-",
+        tipe: row.exam?.type || firstRelation(row.exams)?.type || "-",
+        mapel: row.subject?.name || firstRelation(firstRelation(row.exams)?.subjects)?.name || "-",
+        siswa: row.student?.name || row.users?.name || "-",
+        nis_nik: row.student?.userid || row.users?.userid || "-",
         nilai: row.score ?? "-",
         submit_at: row.created_at,
       }));
@@ -112,6 +114,7 @@ const Reports = () => {
     return studentRows.map((row) => ({
       siswa: row.student,
       nis_nik: row.userid,
+      kelas: row.class_id || "-",
       mapel_diikuti: row.subjects || "-",
       total_mapel: row.totalSubjects,
       total_ujian: row.totalExams,
@@ -141,6 +144,79 @@ const Reports = () => {
     XLSX.writeFile(workbook, `report-${activeTab}.xlsx`);
   };
 
+  const buildRowsByType = (type) => {
+    const previousTab = activeTab;
+    if (type === previousTab) return normalizedRows;
+
+    if (type === "submission") {
+      return submissionRows.map((row) => ({
+        ujian: row.exam?.title || firstRelation(row.exams)?.title || "-",
+        tipe: row.exam?.type || firstRelation(row.exams)?.type || "-",
+        mapel: row.subject?.name || firstRelation(firstRelation(row.exams)?.subjects)?.name || "-",
+        siswa: row.student?.name || row.users?.name || "-",
+        nis_nik: row.student?.userid || row.users?.userid || "-",
+        nilai: row.score ?? "-",
+        submit_at: row.created_at,
+      }));
+    }
+
+    if (type === "subject") {
+      return subjectRows.map((row) => ({
+        mapel: row.subject,
+        kelas: row.class_id,
+        total_siswa: row.totalStudents,
+        total_ujian: row.totalExams,
+        total_submission: row.totalSubmissions,
+        sudah_dinilai: row.scoredSubmissions,
+        belum_dinilai: row.unscoredSubmissions,
+        rata_rata: row.averageScore == null ? "-" : Number(row.averageScore).toFixed(2),
+        nilai_tertinggi: row.highestScore ?? "-",
+        nilai_terendah: row.lowestScore ?? "-",
+        lulus: row.passedCount,
+        belum_lulus: row.failedCount,
+      }));
+    }
+
+    if (type === "student") {
+      return studentRows.map((row) => ({
+        siswa: row.student,
+        nis_nik: row.userid,
+        kelas: row.class_id || "-",
+        mapel_diikuti: row.subjects || "-",
+        total_mapel: row.totalSubjects,
+        total_ujian: row.totalExams,
+        total_submission: row.totalSubmissions,
+        sudah_dinilai: row.scoredSubmissions,
+        belum_dinilai: row.unscoredSubmissions,
+        rata_rata: row.averageScore == null ? "-" : Number(row.averageScore).toFixed(2),
+        nilai_tertinggi: row.highestScore ?? "-",
+        nilai_terendah: row.lowestScore ?? "-",
+        lulus: row.passedCount,
+        belum_lulus: row.failedCount,
+      }));
+    }
+
+    return [];
+  };
+
+  const exportAcademicExcel = () => {
+    const workbook = XLSX.utils.book_new();
+    [
+      ["Submission", buildRowsByType("submission")],
+      ["Mapel", buildRowsByType("subject")],
+      ["Nilai Siswa", buildRowsByType("student")],
+    ].forEach(([sheetName, rows]) => {
+      const safeRows = rows.length ? rows : [{ data: "Tidak ada data" }];
+      const worksheet = XLSX.utils.json_to_sheet(safeRows);
+      worksheet["!cols"] = Object.keys(safeRows[0] || { data: "" }).map((key) => ({
+        wch: Math.max(14, key.length + 4),
+      }));
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    });
+
+    XLSX.writeFile(workbook, "report-akademik.xlsx");
+  };
+
   return (
     <Sidebar>
       <div className="module-shell space-y-5">
@@ -148,7 +224,7 @@ const Reports = () => {
           <h1 className="module-title">Laporan Akademik</h1>
           <p className="mt-2 text-slate-600">
             Filter data, lihat laporan, lalu export CSV/Excel. Filter tanggal memakai tanggal ujian untuk Report Ujian,
-            dan tanggal submit untuk laporan nilai/submission.
+            Report Mapel, dan Report Nilai Siswa. Report Submission memakai tanggal submit.
           </p>
         </div>
 
@@ -182,6 +258,7 @@ const Reports = () => {
             <div className="grid grid-cols-2 gap-2 sm:flex">
               <button className="module-action-btn bg-slate-100 text-slate-700" onClick={exportCsv}>Export CSV</button>
               <button className="module-action-btn bg-emerald-600 text-white" onClick={exportExcel}>Export Excel</button>
+              <button className="module-action-btn bg-blue-600 text-white" onClick={exportAcademicExcel}>Export Akademik</button>
             </div>
           </div>
 

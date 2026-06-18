@@ -2,6 +2,7 @@ const DB_NAME = "exam-video-upload-queue";
 const DB_VERSION = 1;
 const STORE_NAME = "uploads";
 const MAX_ATTEMPTS = 5;
+const PERMANENT_FAILURE_STATUSES = new Set([400, 401, 403, 404, 413]);
 
 type UploadJob = {
   id: string;
@@ -88,7 +89,11 @@ const uploadJob = async (job: UploadJob) => {
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new Error(text || `Upload rekaman gagal (${response.status})`);
+    const error = new Error(text || `Upload rekaman gagal (${response.status})`);
+    (error as Error & { status?: number; permanent?: boolean }).status = response.status;
+    (error as Error & { status?: number; permanent?: boolean }).permanent =
+      PERMANENT_FAILURE_STATUSES.has(response.status);
+    throw error;
   }
 };
 
@@ -107,6 +112,13 @@ export const processVideoUploadQueue = async () => {
         await uploadJob(job);
         await deleteJob(job.id);
       } catch (error) {
+        const uploadError = error as Error & { permanent?: boolean };
+        if (uploadError.permanent) {
+          console.error("Upload rekaman gagal permanen:", uploadError.message);
+          await deleteJob(job.id);
+          continue;
+        }
+
         await saveJob({
           ...job,
           attempts: attempts + 1,

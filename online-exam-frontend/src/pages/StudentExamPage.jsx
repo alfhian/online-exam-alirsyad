@@ -11,6 +11,9 @@ import { enqueueVideoUpload } from "../utils/backgroundVideoUpload";
 const START_TIMEOUT_MS = 30000;
 const SUBMIT_TIMEOUT_MS = 30000;
 const SUBMIT_RETRY_DELAY_MS = 1200;
+const RECORDING_SEGMENT_MS = Number(import.meta.env.VITE_EXAM_RECORDING_SEGMENT_MS || 120000);
+const RECORDING_VIDEO_BITRATE = Number(import.meta.env.VITE_EXAM_RECORDING_VIDEO_BITRATE || 180000);
+const RECORDING_AUDIO_BITRATE = Number(import.meta.env.VITE_EXAM_RECORDING_AUDIO_BITRATE || 24000);
 
 const formatTime = (seconds) => {
   const safeSeconds = Math.max(0, Number(seconds) || 0);
@@ -61,6 +64,9 @@ const StudentExamPage = () => {
   const internalNavigationRef = useRef(false);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
+  const recordingSegmentTimerRef = useRef(null);
+  const recordingSegmentIndexRef = useRef(0);
+  const recordingFlushPromiseRef = useRef(Promise.resolve());
   const autoSubmittedRef = useRef(false);
 
   useEffect(() => {
@@ -191,13 +197,39 @@ const StudentExamPage = () => {
   }, [started, sessionId]);
 
   /* ---------------- Recording ---------------- */
+  const enqueueRecordingSegment = useCallback(async (currentSessionId, final = false) => {
+    if (!currentSessionId) return;
+
+    recordingFlushPromiseRef.current = recordingFlushPromiseRef.current.catch(() => undefined).then(async () => {
+      await new Promise((r) => setTimeout(r, 400));
+
+      const chunks = chunksRef.current;
+      chunksRef.current = [];
+      if (!chunks.length) return;
+
+      const blob = new Blob(chunks, { type: "video/webm" });
+      if (blob.size === 0) return;
+
+      const segmentIndex = recordingSegmentIndexRef.current + 1;
+      recordingSegmentIndexRef.current = segmentIndex;
+
+      await enqueueVideoUpload({
+        sessionId: currentSessionId,
+        blob,
+        fileName: `exam-recording-${String(segmentIndex).padStart(3, "0")}${final ? "-final" : ""}.webm`,
+      });
+    });
+
+    await recordingFlushPromiseRef.current;
+  }, []);
+
   const startRecording = useCallback(async (sessionId) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 640 },
-          height: { ideal: 360 },
-          frameRate: { ideal: 10, max: 15 },
+          width: { ideal: 426 },
+          height: { ideal: 240 },
+          frameRate: { ideal: 8, max: 10 },
         },
         audio: {
           echoCancellation: true,
@@ -210,11 +242,12 @@ const StudentExamPage = () => {
         : "video/webm";
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType,
-        videoBitsPerSecond: 300_000,
-        audioBitsPerSecond: 48_000,
+        videoBitsPerSecond: RECORDING_VIDEO_BITRATE,
+        audioBitsPerSecond: RECORDING_AUDIO_BITRATE,
       });
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
+      recordingSegmentIndexRef.current = 0;
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
@@ -225,34 +258,13 @@ const StudentExamPage = () => {
       };
 
       mediaRecorder.onstop = async () => {
-        console.log("🎥 onstop triggered");
-
-        // Log chunks
-        console.log("Chunks count:", chunksRef.current.length);
-        let totalBytes = 0;
-        chunksRef.current.forEach((c, idx) => {
-          console.log(` chunk[${idx}] size:`, c.size, "type:", c.type);
-          totalBytes += c.size;
-        });
-        console.log("Total bytes (sum of chunks):", totalBytes);
-
-        // small delay to let last data push settle
-        await new Promise((r) => setTimeout(r, 500));
-
-        const blob = new Blob(chunksRef.current, { type: "video/webm" });
-        console.log("Blob created:", { size: blob.size, type: blob.type });
-
-        if (blob.size === 0) {
-          console.error("❌ Blob kosong, abort upload");
-          return;
+        if (recordingSegmentTimerRef.current) {
+          clearInterval(recordingSegmentTimerRef.current);
+          recordingSegmentTimerRef.current = null;
         }
 
         try {
-          await enqueueVideoUpload({
-            sessionId,
-            blob,
-            fileName: "exam-recording.webm",
-          });
+          await enqueueRecordingSegment(sessionId, true);
         } catch (err) {
           console.error("Gagal memasukkan rekaman ke queue upload:", err);
         } finally {
@@ -261,7 +273,6 @@ const StudentExamPage = () => {
             const stream = mediaRecorderRef.current?.stream;
             if (stream) {
               stream.getTracks().forEach((t) => {
-                console.log("Stopping track:", t.kind, t.label);
                 t.stop();
               });
             }
@@ -272,12 +283,24 @@ const StudentExamPage = () => {
       };
 
       mediaRecorder.start(10000);
+      recordingSegmentTimerRef.current = setInterval(() => {
+        const recorder = mediaRecorderRef.current;
+        if (!recorder || recorder.state === "inactive") return;
+
+        try {
+          recorder.requestData();
+          void enqueueRecordingSegment(sessionId);
+        } catch (err) {
+          console.warn("Gagal membuat segmen rekaman:", err);
+        }
+      }, RECORDING_SEGMENT_MS);
+
       return true;
     } catch (err) {
-      console.error("❌ Gagal akses kamera:", err);
+      console.error("Gagal akses kamera:", err);
       return false;
     }
-  }, []);
+  }, [enqueueRecordingSegment]);
 
   /* ---------------- Handlers ---------------- */
   const handleAnswerChange = (questionId, answer) => {
@@ -584,7 +607,7 @@ const StudentExamPage = () => {
       </header>
 
       {/* Daftar Soal */}
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
         {questions.length > 0 ? (
           [...questions]
             .sort((a, b) =>
@@ -597,14 +620,18 @@ const StudentExamPage = () => {
             .map((q, index) => (
               <div
                 key={q.id}
-                className="mb-8 p-6 bg-white rounded-2xl shadow hover:shadow-lg transition-shadow duration-200"
+                className="mb-8 p-5 sm:p-7 lg:p-8 bg-white rounded-2xl shadow hover:shadow-lg transition-shadow duration-200"
               >
                 <div className="flex items-start gap-3 mb-3">
-                  <span className="flex-shrink-0 bg-blue-600 text-white w-8 h-8 flex items-center justify-center rounded-full font-semibold">
+                  <span className="flex-shrink-0 bg-blue-600 text-white w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full font-semibold text-base sm:text-lg">
                     {index + 1}
                   </span>
-                  <div className="font-semibold text-gray-800 leading-relaxed text-lg flex-1">
-                    <RichTextRenderer content={q.question} />
+                  <div className="font-semibold text-gray-800 leading-relaxed text-xl sm:text-2xl flex-1">
+                    <RichTextRenderer
+                      content={q.question}
+                      className="prose-base sm:prose-lg lg:prose-xl"
+                      imageClassName="[&_img]:!max-h-[62vh] [&_img]:!w-auto [&_img]:!h-auto [&_img]:object-contain"
+                    />
                   </div>
                 </div>
 
@@ -614,7 +641,7 @@ const StudentExamPage = () => {
                     {q.options?.map((opt, i) => (
                       <label
                         key={i}
-                        className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all duration-200 hover:bg-blue-50 ${
+                        className={`flex items-start gap-4 p-4 sm:p-5 border rounded-xl cursor-pointer transition-all duration-200 hover:bg-blue-50 ${
                           studentAnswers[q.id] === opt.value
                             ? "border-blue-500 bg-blue-50"
                             : "border-gray-200"
@@ -626,17 +653,21 @@ const StudentExamPage = () => {
                           value={opt.value}
                           onChange={() => handleAnswerChange(q.id, opt.value)}
                           checked={studentAnswers[q.id] === opt.value}
-                          className="accent-blue-600 scale-110"
+                          className="mt-1 accent-blue-600 scale-125"
                         />
                         {opt.type === "image" && /^https?:|^data:image\//.test(opt.value) ? (
                           <img
                             src={opt.value}
                             alt={`option-${i}`}
-                            className="h-20 rounded-md border"
+                            className="max-h-[48vh] min-h-28 w-auto max-w-full rounded-lg border object-contain bg-white"
                           />
                         ) : (
-                          <div className="flex-1 text-gray-700">
-                            <RichTextRenderer content={opt.value} />
+                          <div className="flex-1 text-gray-700 text-lg sm:text-xl leading-relaxed">
+                            <RichTextRenderer
+                              content={opt.value}
+                              className="prose-base sm:prose-lg"
+                              imageClassName="[&_img]:!max-h-[44vh] [&_img]:!w-auto [&_img]:!h-auto [&_img]:object-contain"
+                            />
                           </div>
                         )}
                       </label>
@@ -646,7 +677,7 @@ const StudentExamPage = () => {
                   // Jawaban Esai
                   <textarea
                     name={`q-${q.id}`}
-                    className="w-full border border-gray-300 rounded-xl p-3 mt-3 focus:ring-2 focus:ring-blue-400 focus:outline-none transition-all duration-200"
+                    className="w-full border border-gray-300 rounded-xl p-4 mt-3 text-lg sm:text-xl leading-relaxed focus:ring-2 focus:ring-blue-400 focus:outline-none transition-all duration-200"
                     placeholder="Tulis jawaban Anda di sini..."
                     rows={5}
                     value={studentAnswers[q.id] || ""}

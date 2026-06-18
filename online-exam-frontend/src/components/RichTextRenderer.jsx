@@ -3,7 +3,7 @@ import DOMPurify from "dompurify";
 import "katex/dist/katex.min.css";
 import { InlineMath, BlockMath } from "react-katex";
 
-const RichTextRenderer = ({ content }) => {
+const RichTextRenderer = ({ content, className = "", imageClassName = "" }) => {
   const [preview, setPreview] = useState(null);
 
   if (!content) return null;
@@ -13,7 +13,7 @@ const RichTextRenderer = ({ content }) => {
 
   return (
     <div
-      className="rich-text-content prose max-w-none prose-slate"
+      className={`rich-text-content prose max-w-none prose-slate ${className}`}
       onClick={(event) => {
         if (event.target?.tagName === "IMG") {
           setPreview({
@@ -32,7 +32,7 @@ const RichTextRenderer = ({ content }) => {
           return (
             <div
               key={index}
-              className="rich-text-html [&_img]:my-3 [&_img]:max-w-full [&_img]:cursor-zoom-in [&_img]:rounded-lg [&_img]:border [&_img]:border-slate-200 [&_img]:shadow-sm"
+              className={`rich-text-html [&_img]:my-3 [&_img]:max-w-full [&_img]:cursor-zoom-in [&_img]:rounded-lg [&_img]:border [&_img]:border-slate-200 [&_img]:shadow-sm ${imageClassName}`}
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(part) }}
             />
           );

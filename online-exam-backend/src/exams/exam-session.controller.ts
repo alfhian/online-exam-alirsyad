@@ -14,7 +14,7 @@ import { ExamSessionService } from './exam-session.service';
 import type { Request } from 'express';
 
 const maxVideoUploadBytes =
-  Number(process.env.MAX_EXAM_VIDEO_UPLOAD_MB || 80) * 1024 * 1024;
+  Number(process.env.MAX_EXAM_VIDEO_UPLOAD_MB || 45) * 1024 * 1024;
 
 @Controller('exam-sessions')
 @UseGuards(AuthGuard('jwt'))

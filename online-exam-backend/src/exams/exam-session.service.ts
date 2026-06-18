@@ -1,10 +1,21 @@
 import {
+  HttpException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  PayloadTooLargeException,
 } from "@nestjs/common";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
+
+const maxVideoUploadBytes =
+  Number(process.env.MAX_EXAM_VIDEO_UPLOAD_MB || 45) * 1024 * 1024;
+
+const isPayloadTooLargeStorageError = (error: any) =>
+  error?.statusCode === "413" ||
+  error?.statusCode === 413 ||
+  error?.status === 413 ||
+  String(error?.message || "").toLowerCase().includes("maximum allowed size");
 
 @Injectable()
 export class ExamSessionService {
@@ -111,6 +122,12 @@ export class ExamSessionService {
       if (!file)
         throw new InternalServerErrorException("No file uploaded");
 
+      if (file.size > maxVideoUploadBytes) {
+        throw new PayloadTooLargeException(
+          `Ukuran rekaman terlalu besar. Maksimal ${Math.round(maxVideoUploadBytes / 1024 / 1024)} MB per segmen.`,
+        );
+      }
+
       /* =========================================
        * GET exam_id FROM exam_sessions
        * =========================================*/
@@ -140,6 +157,11 @@ export class ExamSessionService {
 
       if (uploadErr) {
         console.error("SUPABASE UPLOAD ERROR:", uploadErr);
+        if (isPayloadTooLargeStorageError(uploadErr)) {
+          throw new PayloadTooLargeException(
+            `Ukuran rekaman terlalu besar untuk Supabase Storage. Maksimal ${Math.round(maxVideoUploadBytes / 1024 / 1024)} MB per segmen.`,
+          );
+        }
         throw new InternalServerErrorException(`Supabase Storage Error: ${uploadErr.message}`);
       }
 
@@ -166,18 +188,53 @@ export class ExamSessionService {
       }
 
       if (submission) {
-        const { error: updateErr } = await this.supabase
-          .from("exam_submissions")
-          .update({
+        const previousRecordings = Array.isArray(submission.recording_files)
+          ? submission.recording_files
+          : [];
+        const nextRecordingFiles = [
+          ...previousRecordings,
+          {
             file_name: fileName,
             file_url: publicUrl,
-            student_id: user?.sub,
-            updated_by: user?.sub,
-            updated_at: new Date(),
-          })
+            size: file.size,
+            content_type: contentType,
+            uploaded_at: new Date().toISOString(),
+          },
+        ];
+
+        const submissionUpdate = {
+          file_name: fileName,
+          file_url: publicUrl,
+          recording_files: nextRecordingFiles,
+          student_id: user?.sub,
+          updated_by: user?.sub,
+          updated_at: new Date(),
+        };
+
+        const { error: updateErr } = await this.supabase
+          .from("exam_submissions")
+          .update(submissionUpdate)
           .eq("id", submission.id);
 
-        if (updateErr) throw new InternalServerErrorException(`Update Submission Error: ${updateErr.message}`);
+        if (updateErr) {
+          const missingRecordingFilesColumn =
+            String(updateErr.message || "").includes("recording_files") ||
+            String(updateErr.details || "").includes("recording_files");
+
+          if (missingRecordingFilesColumn) {
+            const { recording_files, ...legacySubmissionUpdate } = submissionUpdate;
+            const { error: legacyUpdateErr } = await this.supabase
+              .from("exam_submissions")
+              .update(legacySubmissionUpdate)
+              .eq("id", submission.id);
+
+            if (legacyUpdateErr) {
+              throw new InternalServerErrorException(`Update Submission Error: ${legacyUpdateErr.message}`);
+            }
+          } else {
+            throw new InternalServerErrorException(`Update Submission Error: ${updateErr.message}`);
+          }
+        }
       }
 
       return {
@@ -191,6 +248,9 @@ export class ExamSessionService {
       };
     } catch (err) {
       console.error("UPLOAD ERROR:", err);
+      if (err instanceof HttpException) {
+        throw err;
+      }
       throw new InternalServerErrorException(
         err?.message || "Failed to upload or compress video"
       );

@@ -18,6 +18,55 @@ export class ReportsService {
     return Number.isFinite(score) ? score : null;
   }
 
+  private firstRelation<T = any>(value: T | T[] | null | undefined): T | null {
+    if (Array.isArray(value)) return value[0] || null;
+    return value || null;
+  }
+
+  private normalizeClassIdentifier(value: unknown): string {
+    return String(value ?? '')
+      .trim()
+      .toUpperCase()
+      .replace(/[\s_-]+/g, '');
+  }
+
+  private hasSubmittedAnswers(value: unknown): boolean {
+    if (Array.isArray(value)) {
+      return value.some((answer) => {
+        if (!answer || typeof answer !== 'object') return false;
+        if (!('question_id' in answer)) return false;
+        if (!('answer' in answer)) return false;
+        return answer.answer !== undefined && answer.answer !== null;
+      });
+    }
+
+    if (typeof value === 'string') {
+      try {
+        return this.hasSubmittedAnswers(JSON.parse(value));
+      } catch {
+        return value.trim().length > 0;
+      }
+    }
+
+    return Boolean(value && typeof value === 'object' && Object.keys(value as object).length > 0);
+  }
+
+  private normalizeSubmissionRow(row: any) {
+    const exam = this.firstRelation(row?.exams);
+    const subject = this.firstRelation(exam?.subjects);
+
+    return {
+      ...row,
+      exam,
+      subject,
+      exams: {
+        ...(exam || {}),
+        subjects: subject,
+      },
+      users: this.firstRelation(row?.users) || row?.users || null,
+    };
+  }
+
   private async getAllowedSubjectIds(user?: any) {
     if (String(user?.role || '').toUpperCase() !== 'GURU') return null;
 
@@ -31,37 +80,144 @@ export class ReportsService {
     return (data || []).map((row: any) => row.id);
   }
 
-  async getExamPerformance(filter: ReportFilter, user?: any) {
-    try {
-      const allowedSubjectIds = await this.getAllowedSubjectIds(user);
-      if (allowedSubjectIds && allowedSubjectIds.length === 0) return [];
-      if (allowedSubjectIds && filter.subjectId && !allowedSubjectIds.includes(filter.subjectId)) return [];
+  private async getReportSubjects(filter: ReportFilter, user?: any) {
+    const allowedSubjectIds = await this.getAllowedSubjectIds(user);
+    if (allowedSubjectIds && allowedSubjectIds.length === 0) return [];
+    if (allowedSubjectIds && filter.subjectId && !allowedSubjectIds.includes(filter.subjectId)) return [];
 
-      let query = this.supabase.from('exams').select(
-        `
+    let query = this.supabase
+      .from('subjects')
+      .select('id,name,class_id,teacher_id')
+      .is('deleted_at', null);
+
+    if (filter.subjectId) query = query.eq('id', filter.subjectId);
+    if (allowedSubjectIds) query = query.in('id', allowedSubjectIds);
+
+    const { data, error } = await query.order('name', { ascending: true });
+    if (error) throw new InternalServerErrorException(error.message);
+    return data || [];
+  }
+
+  private async getReportStudents(filter: ReportFilter, user?: any) {
+    const subjects = await this.getReportSubjects(filter, user);
+    const allowedClasses = new Set(
+      subjects.map((subject: any) => this.normalizeClassIdentifier(subject.class_id)).filter(Boolean),
+    );
+
+    const { data, error } = await this.supabase
+      .from('users')
+      .select('id,name,userid,class_id,class_name')
+      .eq('role', 'SISWA')
+      .is('deleted_at', null)
+      .order('name', { ascending: true });
+
+    if (error) throw new InternalServerErrorException(error.message);
+
+    if (String(user?.role || '').toUpperCase() !== 'GURU' && !filter.subjectId) {
+      return data || [];
+    }
+
+    return (data || []).filter((student: any) => {
+      if (allowedClasses.size === 0) return false;
+      return [student.class_id, student.class_name]
+        .map((value) => this.normalizeClassIdentifier(value))
+        .some((value) => allowedClasses.has(value));
+      });
+  }
+
+  private async getReportExams(filter: ReportFilter, user?: any) {
+    const allowedSubjectIds = await this.getAllowedSubjectIds(user);
+    if (allowedSubjectIds && allowedSubjectIds.length === 0) return [];
+    if (allowedSubjectIds && filter.subjectId && !allowedSubjectIds.includes(filter.subjectId)) return [];
+
+    let query = this.supabase.from('exams').select(
+      `
+        id,
+        title,
+        type,
+        date,
+        duration,
+        subject_id,
+        subjects (
+          id,
+          name,
+          class_id
+        )
+      `,
+    ).is('deleted_at', null);
+
+    if (filter.from) query = query.gte('date', filter.from);
+    if (filter.to) query = query.lte('date', filter.to);
+    if (filter.subjectId) query = query.eq('subject_id', filter.subjectId);
+    if (allowedSubjectIds) query = query.in('subject_id', allowedSubjectIds);
+    if (filter.examType) query = query.eq('type', filter.examType.toUpperCase());
+
+    const { data, error } = await query.order('date', { ascending: false });
+    if (error) throw new InternalServerErrorException(error.message);
+
+    return (data || []).map((row: any) => ({
+      ...row,
+      subjects: this.firstRelation(row.subjects),
+    }));
+  }
+
+  private async getSubmittedRowsByExamIds(examIds: string[]) {
+    if (examIds.length === 0) return [];
+
+    const { data, error } = await this.supabase.from('exam_submissions').select(
+      `
+        id,
+        score,
+        answers,
+        created_at,
+        exam_id,
+        student_id,
+        exams (
           id,
           title,
           type,
           date,
-          duration,
+          subject_id,
           subjects (
             id,
             name,
             class_id
           )
-        `,
-      );
+        )
+      `,
+    ).in('exam_id', examIds);
 
-      if (filter.from) query = query.gte('date', filter.from);
-      if (filter.to) query = query.lte('date', filter.to);
-      if (filter.subjectId) query = query.eq('subject_id', filter.subjectId);
-      if (allowedSubjectIds) query = query.in('subject_id', allowedSubjectIds);
-      if (filter.examType) query = query.eq('type', filter.examType.toUpperCase());
+    if (error) throw new InternalServerErrorException(error.message);
 
-      const { data, error } = await query.order('date', { ascending: false });
-      if (error) throw error;
+    const rows = (data || [])
+      .filter((row: any) => this.hasSubmittedAnswers(row.answers))
+      .map((row: any) => this.normalizeSubmissionRow(row));
 
-      return data || [];
+    const studentIds = [...new Set(rows.map((row: any) => row.student_id).filter(Boolean))];
+    if (studentIds.length === 0) return rows;
+
+    const { data: users, error: userError } = await this.supabase
+      .from('users')
+      .select('id,name,userid')
+      .in('id', studentIds);
+
+    if (userError) throw new InternalServerErrorException(userError.message);
+
+    const usersById = (users || []).reduce((acc: Record<string, any>, user: any) => {
+      acc[user.id] = user;
+      return acc;
+    }, {});
+
+    return rows.map((row: any) => ({
+      ...row,
+      users: usersById[row.student_id] || null,
+      student: usersById[row.student_id] || null,
+    }));
+  }
+
+  async getExamPerformance(filter: ReportFilter, user?: any) {
+    try {
+      return this.getReportExams(filter, user);
     } catch (error: any) {
       throw new InternalServerErrorException(error.message);
     }
@@ -77,6 +233,7 @@ export class ReportsService {
         `
           id,
           score,
+          answers,
           created_at,
           exam_id,
           student_id,
@@ -101,17 +258,19 @@ export class ReportsService {
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
 
-      let rows = data || [];
+      let rows = (data || [])
+        .filter((row: any) => this.hasSubmittedAnswers(row.answers))
+        .map((row: any) => this.normalizeSubmissionRow(row));
 
       if (filter.subjectId) {
-        rows = rows.filter((row: any) => row?.exams?.subject_id === filter.subjectId);
+        rows = rows.filter((row: any) => row?.exam?.subject_id === filter.subjectId);
       }
       if (allowedSubjectIds) {
-        rows = rows.filter((row: any) => allowedSubjectIds.includes(row?.exams?.subject_id));
+        rows = rows.filter((row: any) => allowedSubjectIds.includes(row?.exam?.subject_id));
       }
       if (filter.examType) {
         rows = rows.filter(
-          (row: any) => row?.exams?.type?.toUpperCase() === filter.examType?.toUpperCase(),
+          (row: any) => row?.exam?.type?.toUpperCase() === filter.examType?.toUpperCase(),
         );
       }
 
@@ -131,30 +290,53 @@ export class ReportsService {
         }, {});
       }
 
-      rows = rows.map((row: any) => ({
+      return rows.map((row: any) => ({
         ...row,
         users: usersById[row.student_id] || null,
+        student: usersById[row.student_id] || null,
       }));
-
-      return rows;
     } catch (error: any) {
       throw new InternalServerErrorException(error.message);
     }
   }
 
   async getSubjectSummary(filter: ReportFilter, user?: any) {
-    const submissions = await this.getSubmissionList(filter, user);
+    const [subjects, exams] = await Promise.all([
+      this.getReportSubjects(filter, user),
+      this.getReportExams(filter, user),
+    ]);
+    const submissions = await this.getSubmittedRowsByExamIds(exams.map((exam: any) => exam.id).filter(Boolean));
 
-    const grouped = submissions.reduce((acc: any, row: any) => {
-      const subjectId = row?.exams?.subjects?.id || row?.exams?.subject_id || 'unknown';
-      const subjectName = row?.exams?.subjects?.name || 'Tanpa Mapel';
-      const score = this.getNumericScore(row?.score);
+    const grouped = subjects.reduce((acc: any, subject: any) => {
+      acc[subject.id] = {
+        subjectId: subject.id,
+        subject: subject.name || 'Tanpa Mapel',
+        class_id: subject.class_id || '-',
+        totalSubmissions: 0,
+        scoredSubmissions: 0,
+        unscoredSubmissions: 0,
+        totalStudents: new Set<string>(),
+        totalExams: new Set<string>(),
+        totalScore: 0,
+        averageScore: 0,
+        highestScore: null,
+        lowestScore: null,
+        passedCount: 0,
+        failedCount: 0,
+      };
+      return acc;
+    }, {});
 
-      if (!acc[subjectId]) {
-        acc[subjectId] = {
+    exams.forEach((exam: any) => {
+      const subject = exam?.subjects || null;
+      const subjectId = subject?.id || exam?.subject_id || 'unknown';
+      const subjectName = subject?.name || 'Tanpa Mapel';
+
+      if (!grouped[subjectId]) {
+        grouped[subjectId] = {
           subjectId,
           subject: subjectName,
-          class_id: row?.exams?.subjects?.class_id || '-',
+          class_id: subject?.class_id || '-',
           totalSubmissions: 0,
           scoredSubmissions: 0,
           unscoredSubmissions: 0,
@@ -169,28 +351,53 @@ export class ReportsService {
         };
       }
 
-      acc[subjectId].totalSubmissions += 1;
-      if (row?.student_id) acc[subjectId].totalStudents.add(row.student_id);
-      if (row?.exam_id) acc[subjectId].totalExams.add(row.exam_id);
+      if (exam?.id) grouped[subjectId].totalExams.add(exam.id);
+    });
 
-      if (score === null) {
-        acc[subjectId].unscoredSubmissions += 1;
-        return acc;
+    submissions.forEach((row: any) => {
+      const subject = row?.subject || row?.exams?.subjects || null;
+      const subjectId = subject?.id || row?.exam?.subject_id || row?.exams?.subject_id || 'unknown';
+      const subjectName = subject?.name || 'Tanpa Mapel';
+      const score = this.getNumericScore(row?.score);
+
+      if (!grouped[subjectId]) {
+        grouped[subjectId] = {
+          subjectId,
+          subject: subjectName,
+          class_id: subject?.class_id || '-',
+          totalSubmissions: 0,
+          scoredSubmissions: 0,
+          unscoredSubmissions: 0,
+          totalStudents: new Set<string>(),
+          totalExams: new Set<string>(),
+          totalScore: 0,
+          averageScore: 0,
+          highestScore: null,
+          lowestScore: null,
+          passedCount: 0,
+          failedCount: 0,
+        };
       }
 
-      acc[subjectId].scoredSubmissions += 1;
-      acc[subjectId].totalScore += score;
-      acc[subjectId].averageScore =
-        acc[subjectId].totalScore / acc[subjectId].scoredSubmissions;
-      acc[subjectId].highestScore =
-        acc[subjectId].highestScore === null ? score : Math.max(acc[subjectId].highestScore, score);
-      acc[subjectId].lowestScore =
-        acc[subjectId].lowestScore === null ? score : Math.min(acc[subjectId].lowestScore, score);
-      if (score >= 75) acc[subjectId].passedCount += 1;
-      else acc[subjectId].failedCount += 1;
+      grouped[subjectId].totalSubmissions += 1;
+      if (row?.student_id) grouped[subjectId].totalStudents.add(row.student_id);
 
-      return acc;
-    }, {});
+      if (score === null) {
+        grouped[subjectId].unscoredSubmissions += 1;
+        return;
+      }
+
+      grouped[subjectId].scoredSubmissions += 1;
+      grouped[subjectId].totalScore += score;
+      grouped[subjectId].averageScore =
+        grouped[subjectId].totalScore / grouped[subjectId].scoredSubmissions;
+      grouped[subjectId].highestScore =
+        grouped[subjectId].highestScore === null ? score : Math.max(grouped[subjectId].highestScore, score);
+      grouped[subjectId].lowestScore =
+        grouped[subjectId].lowestScore === null ? score : Math.min(grouped[subjectId].lowestScore, score);
+      if (score >= 75) grouped[subjectId].passedCount += 1;
+      else grouped[subjectId].failedCount += 1;
+    });
 
     return Object.values(grouped)
       .map((row: any) => ({
@@ -205,17 +412,43 @@ export class ReportsService {
   }
 
   async getStudentScoreSummary(filter: ReportFilter, user?: any) {
-    const submissions = await this.getSubmissionList(filter, user);
+    const [students, exams] = await Promise.all([
+      this.getReportStudents(filter, user),
+      this.getReportExams(filter, user),
+    ]);
+    const submissions = await this.getSubmittedRowsByExamIds(exams.map((exam: any) => exam.id).filter(Boolean));
 
-    const grouped = submissions.reduce((acc: any, row: any) => {
+    const grouped = students.reduce((acc: any, student: any) => {
+      acc[student.id] = {
+        studentId: student.id,
+        student: student.name || 'Tanpa Nama',
+        userid: student.userid || '-',
+        class_id: student.class_id || student.class_name || '-',
+        totalSubmissions: 0,
+        scoredSubmissions: 0,
+        unscoredSubmissions: 0,
+        totalScore: 0,
+        averageScore: 0,
+        highestScore: null,
+        lowestScore: null,
+        passedCount: 0,
+        failedCount: 0,
+        subjects: new Set<string>(),
+        exams: new Set<string>(),
+      };
+      return acc;
+    }, {});
+
+    submissions.forEach((row: any) => {
       const studentId = row?.student_id || 'unknown';
       const score = this.getNumericScore(row?.score);
 
-      if (!acc[studentId]) {
-        acc[studentId] = {
+      if (!grouped[studentId]) {
+        grouped[studentId] = {
           studentId,
           student: row?.users?.name || 'Tanpa Nama',
           userid: row?.users?.userid || '-',
+          class_id: '-',
           totalSubmissions: 0,
           scoredSubmissions: 0,
           unscoredSubmissions: 0,
@@ -230,28 +463,28 @@ export class ReportsService {
         };
       }
 
-      acc[studentId].totalSubmissions += 1;
-      if (row?.exams?.subjects?.name) acc[studentId].subjects.add(row.exams.subjects.name);
-      if (row?.exam_id) acc[studentId].exams.add(row.exam_id);
+      grouped[studentId].totalSubmissions += 1;
+      if (row?.subject?.name || row?.exams?.subjects?.name) {
+        grouped[studentId].subjects.add(row?.subject?.name || row.exams.subjects.name);
+      }
+      if (row?.exam_id) grouped[studentId].exams.add(row.exam_id);
 
       if (score === null) {
-        acc[studentId].unscoredSubmissions += 1;
-        return acc;
+        grouped[studentId].unscoredSubmissions += 1;
+        return;
       }
 
-      acc[studentId].scoredSubmissions += 1;
-      acc[studentId].totalScore += score;
-      acc[studentId].averageScore =
-        acc[studentId].totalScore / acc[studentId].scoredSubmissions;
-      acc[studentId].highestScore =
-        acc[studentId].highestScore === null ? score : Math.max(acc[studentId].highestScore, score);
-      acc[studentId].lowestScore =
-        acc[studentId].lowestScore === null ? score : Math.min(acc[studentId].lowestScore, score);
-      if (score >= 75) acc[studentId].passedCount += 1;
-      else acc[studentId].failedCount += 1;
-
-      return acc;
-    }, {});
+      grouped[studentId].scoredSubmissions += 1;
+      grouped[studentId].totalScore += score;
+      grouped[studentId].averageScore =
+        grouped[studentId].totalScore / grouped[studentId].scoredSubmissions;
+      grouped[studentId].highestScore =
+        grouped[studentId].highestScore === null ? score : Math.max(grouped[studentId].highestScore, score);
+      grouped[studentId].lowestScore =
+        grouped[studentId].lowestScore === null ? score : Math.min(grouped[studentId].lowestScore, score);
+      if (score >= 75) grouped[studentId].passedCount += 1;
+      else grouped[studentId].failedCount += 1;
+    });
 
     return Object.values(grouped)
       .map((row: any) => ({
