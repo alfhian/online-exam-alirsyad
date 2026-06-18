@@ -51,6 +51,67 @@ export class ReportsService {
     return Boolean(value && typeof value === 'object' && Object.keys(value as object).length > 0);
   }
 
+  private normalizeAnswers(value: unknown): any[] {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
+
+  private getMultipleChoicePreviewScore(answersValue: unknown, questions: any[]) {
+    const multipleChoiceQuestions = (questions || []).filter(
+      (question) => question.type === 'multiple_choice',
+    );
+    if (multipleChoiceQuestions.length === 0) return null;
+
+    const answers = this.normalizeAnswers(answersValue);
+    const correctCount = multipleChoiceQuestions.filter((question) => {
+      const answer = answers.find((item) => String(item?.question_id) === String(question.id));
+      return String(answer?.answer ?? '').trim().toLowerCase() === String(question.answer ?? '').trim().toLowerCase();
+    }).length;
+
+    return Math.round((correctCount / multipleChoiceQuestions.length) * 100);
+  }
+
+  private async attachMultipleChoicePreview(rows: any[]) {
+    const examIds = [...new Set(rows.map((row: any) => row.exam_id).filter(Boolean))];
+    if (examIds.length === 0) return rows;
+
+    const { data: questions, error } = await this.supabase
+      .from('questionnaires')
+      .select('id,exam_id,type,answer')
+      .in('exam_id', examIds)
+      .is('deleted_at', null);
+
+    if (error) throw new InternalServerErrorException(error.message);
+
+    const questionsByExamId = (questions || []).reduce((acc: Record<string, any[]>, question: any) => {
+      const examId = String(question.exam_id);
+      if (!acc[examId]) acc[examId] = [];
+      acc[examId].push(question);
+      return acc;
+    }, {});
+
+    return rows.map((row: any) => {
+      const examQuestions = questionsByExamId[String(row.exam_id)] || [];
+      const hasEssay = examQuestions.some((question: any) => question.type !== 'multiple_choice');
+      const finalScoreMissing = row.score === null || row.score === undefined;
+
+      return {
+        ...row,
+        multiple_choice_score: this.getMultipleChoicePreviewScore(row.answers, examQuestions),
+        is_multiple_choice_only_score: finalScoreMissing,
+        essay_pending: hasEssay && finalScoreMissing,
+      };
+    });
+  }
+
   private normalizeSubmissionRow(row: any) {
     const exam = this.firstRelation(row?.exams);
     const subject = this.firstRelation(exam?.subjects);
@@ -290,11 +351,13 @@ export class ReportsService {
         }, {});
       }
 
-      return rows.map((row: any) => ({
+      const rowsWithStudents = rows.map((row: any) => ({
         ...row,
         users: usersById[row.student_id] || null,
         student: usersById[row.student_id] || null,
       }));
+
+      return this.attachMultipleChoicePreview(rowsWithStudents);
     } catch (error: any) {
       throw new InternalServerErrorException(error.message);
     }

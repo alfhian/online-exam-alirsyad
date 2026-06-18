@@ -8,7 +8,7 @@ import * as XLSX from "xlsx";
 const toCsv = (rows) => {
   if (!rows.length) return "";
   const headers = Object.keys(rows[0]);
-  const escape = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+  const escape = (value) => `"${String(getExportValue(value) ?? "").replace(/"/g, '""')}"`;
   return [headers.join(","), ...rows.map((row) => headers.map((h) => escape(row[h])).join(","))].join("\n");
 };
 
@@ -23,6 +23,78 @@ const downloadFile = (content, fileName, type) => {
 };
 
 const firstRelation = (value) => (Array.isArray(value) ? value[0] : value) || null;
+const getExportValue = (value) => {
+  if (value && typeof value === "object" && "exportValue" in value) return value.exportValue;
+  return value;
+};
+
+const getScoreColor = (score) => {
+  if (score < 50) return "bg-rose-50 text-rose-700 border-rose-100";
+  if (score < 75) return "bg-amber-50 text-amber-700 border-amber-100";
+  return "bg-green-50 text-green-700 border-green-100";
+};
+
+const buildReportScoreValue = (row) => {
+  if (row.score !== null && row.score !== undefined) {
+    return {
+      value: row.score,
+      exportValue: row.score,
+      badges: [],
+    };
+  }
+
+  if (row.multiple_choice_score !== null && row.multiple_choice_score !== undefined) {
+    const badges = ["PG only"];
+    if (row.essay_pending) badges.push("Essay belum dinilai");
+
+    return {
+      value: row.multiple_choice_score,
+      exportValue: `${row.multiple_choice_score} (${badges.join("; ")})`,
+      badges,
+    };
+  }
+
+  return {
+    value: "Belum Dinilai",
+    exportValue: "Belum Dinilai",
+    badges: [],
+    muted: true,
+  };
+};
+
+const renderReportCell = (value) => {
+  if (value && typeof value === "object" && "value" in value) {
+    if (value.muted) {
+      return (
+        <span className="inline-flex rounded border border-slate-100 bg-slate-50 px-2 py-0.5 text-[10px] font-bold italic text-slate-400">
+          {value.value}
+        </span>
+      );
+    }
+
+    return (
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className={`inline-flex rounded border px-2 py-0.5 text-[10px] font-bold ${getScoreColor(Number(value.value))}`}>
+          {value.value}
+        </span>
+        {value.badges?.map((badge) => (
+          <span
+            key={badge}
+            className={`inline-flex rounded border px-2 py-0.5 text-[9px] font-bold ${
+              badge === "PG only"
+                ? "border-blue-100 bg-blue-50 text-blue-700"
+                : "border-slate-100 bg-slate-50 text-slate-500"
+            }`}
+          >
+            {badge}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  return String(value ?? "-");
+};
 
 const reportConfig = {
   ujian: {
@@ -136,6 +208,7 @@ const Reports = () => {
       const subject = row.subject || firstRelation(exam?.subjects);
       const student = row.student || row.users || {};
       const score = row.score ?? null;
+      const displayScore = score ?? row.multiple_choice_score ?? null;
       const scored = score !== null && score !== undefined && score !== "";
 
       if (filters.scoreStatus === "scored" && !scored) return false;
@@ -144,7 +217,7 @@ const Reports = () => {
       return (
         [student.name, student.userid, exam?.title].some((value) => includesText(value, filters.keyword)) &&
         includesText(subject?.class_id, filters.className) &&
-        numberInRange(score, filters.scoreMin, filters.scoreMax)
+        numberInRange(displayScore, filters.scoreMin, filters.scoreMax)
       );
     });
   }, [filters.className, filters.keyword, filters.scoreMax, filters.scoreMin, filters.scoreStatus, submissionRows]);
@@ -214,7 +287,7 @@ const Reports = () => {
         mapel: row.subject?.name || firstRelation(firstRelation(row.exams)?.subjects)?.name || "-",
         siswa: row.student?.name || row.users?.name || "-",
         nis_nik: row.student?.userid || row.users?.userid || "-",
-        nilai: row.score ?? "-",
+        nilai: buildReportScoreValue(row),
         submit_at: row.created_at,
       }));
     }
@@ -259,8 +332,11 @@ const Reports = () => {
   };
 
   const exportExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(normalizedRows.length ? normalizedRows : [{ data: "Tidak ada data" }]);
-    worksheet["!cols"] = Object.keys(normalizedRows[0] || { data: "" }).map((key) => ({
+    const exportRows = normalizedRows.map((row) =>
+      Object.fromEntries(Object.entries(row).map(([key, value]) => [key, getExportValue(value)])),
+    );
+    const worksheet = XLSX.utils.json_to_sheet(exportRows.length ? exportRows : [{ data: "Tidak ada data" }]);
+    worksheet["!cols"] = Object.keys(exportRows[0] || { data: "" }).map((key) => ({
       wch: Math.max(14, key.length + 4),
     }));
 
@@ -280,7 +356,7 @@ const Reports = () => {
         mapel: row.subject?.name || firstRelation(firstRelation(row.exams)?.subjects)?.name || "-",
         siswa: row.student?.name || row.users?.name || "-",
         nis_nik: row.student?.userid || row.users?.userid || "-",
-        nilai: row.score ?? "-",
+        nilai: buildReportScoreValue(row),
         submit_at: row.created_at,
       }));
     }
@@ -339,8 +415,11 @@ const Reports = () => {
       ["Nilai Siswa", buildRowsByType("student")],
     ].forEach(([sheetName, rows]) => {
       const safeRows = rows.length ? rows : [{ data: "Tidak ada data" }];
-      const worksheet = XLSX.utils.json_to_sheet(safeRows);
-      worksheet["!cols"] = Object.keys(safeRows[0] || { data: "" }).map((key) => ({
+      const exportRows = safeRows.map((row) =>
+        Object.fromEntries(Object.entries(row).map(([key, value]) => [key, getExportValue(value)])),
+      );
+      const worksheet = XLSX.utils.json_to_sheet(exportRows);
+      worksheet["!cols"] = Object.keys(exportRows[0] || { data: "" }).map((key) => ({
         wch: Math.max(14, key.length + 4),
       }));
       XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
@@ -561,7 +640,7 @@ const Reports = () => {
                       normalizedRows.map((row, idx) => (
                         <tr key={idx} className="hover:bg-slate-50 transition-colors border-b last:border-none">
                           {Object.values(row).map((val, i) => (
-                            <td key={`${idx}-${i}`} className="px-4 py-3">{String(val ?? "-")}</td>
+                            <td key={`${idx}-${i}`} className="px-4 py-3">{renderReportCell(val)}</td>
                           ))}
                         </tr>
                       ))
@@ -600,7 +679,7 @@ const Reports = () => {
                           key !== "judul" && key !== "ujian" && key !== "mapel" && key !== "siswa" && key !== "tipe" && key !== "kelas" && (
                             <div key={i}>
                               <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1">{key.replaceAll("_", " ")}</p>
-                              <p className="text-xs font-semibold text-slate-700 truncate">{String(val ?? "-")}</p>
+                              <div className="text-xs font-semibold text-slate-700">{renderReportCell(val)}</div>
                             </div>
                           )
                         ))}

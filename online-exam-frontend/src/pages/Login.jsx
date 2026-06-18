@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axiosConfig";
 import { FaUser, FaLock, FaArrowRight } from "react-icons/fa";
+import { getUserFromToken } from "../utils/jwtHelper";
 
 const Login = () => {
   const [userid, setUserid] = useState("");
@@ -9,6 +10,13 @@ const Login = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const user = getUserFromToken();
+    if (user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
