@@ -85,6 +85,16 @@ export class TeacherExamsService {
     return Math.round((correctCount / multipleChoiceIds.length) * 100);
   }
 
+  private getWeightedMultipleChoicePreviewScore(
+    answersValue: unknown,
+    questions: any[],
+    multipleChoiceWeight: unknown,
+  ) {
+    const rawScore = this.getMultipleChoicePreviewScore(answersValue, questions);
+    if (rawScore === null) return null;
+    return Math.round((rawScore * this.normalizeScoreWeight(multipleChoiceWeight, 50)) / 100);
+  }
+
   private sortRows(rows: any[], sort: string, order: 'asc' | 'desc') {
     const direction = order === 'asc' ? 1 : -1;
 
@@ -116,7 +126,7 @@ export class TeacherExamsService {
   private async assertTeacherCanAccessExam(examId: string, user?: any) {
     const { data: exam, error } = await this.supabase
       .from('exams')
-      .select('id, title, subject_id, subject:subjects(id, name, class_id, teacher_id)')
+      .select('id, title, subject_id, multiple_choice_weight, essay_weight, subject:subjects(id, name, class_id, teacher_id)')
       .eq('id', examId)
       .is('deleted_at', null)
       .single();
@@ -293,7 +303,9 @@ export class TeacherExamsService {
         ...sub,
         exam,
         student: students.find(s => s.id === sub.student_id) || null,
-        multiple_choice_score: this.getMultipleChoicePreviewScore(sub.answers, questions || []),
+        multiple_choice_score: hasEssay
+          ? this.getWeightedMultipleChoicePreviewScore(sub.answers, questions || [], exam?.multiple_choice_weight)
+          : this.getMultipleChoicePreviewScore(sub.answers, questions || []),
         is_multiple_choice_only_score: sub.score === null || sub.score === undefined,
         essay_pending: hasEssay && (sub.score === null || sub.score === undefined),
       }));

@@ -44,7 +44,7 @@ const buildReportScoreValue = (row) => {
   }
 
   if (row.multiple_choice_score !== null && row.multiple_choice_score !== undefined) {
-    const badges = ["PG only"];
+    const badges = ["PG berbobot"];
     if (row.essay_pending) badges.push("Essay belum dinilai");
 
     return {
@@ -81,7 +81,7 @@ const renderReportCell = (value) => {
           <span
             key={badge}
             className={`inline-flex rounded border px-2 py-0.5 text-[9px] font-bold ${
-              badge === "PG only"
+              badge === "PG berbobot"
                 ? "border-blue-100 bg-blue-50 text-blue-700"
                 : "border-slate-100 bg-slate-50 text-slate-500"
             }`}

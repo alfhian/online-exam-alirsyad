@@ -60,7 +60,7 @@ const TeacherExamStudentsTable = ({ data, searchParams, setSearchParams, onRefre
             {submission.multiple_choice_score}
           </span>
           <span className="px-2 py-0.5 rounded text-[9px] font-bold border bg-blue-50 text-blue-700 border-blue-100">
-            PG only
+            PG berbobot
           </span>
           {submission.essay_pending && (
             <span className="px-2 py-0.5 rounded text-[9px] font-bold border bg-slate-50 text-slate-500 border-slate-100">

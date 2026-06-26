@@ -18,6 +18,12 @@ export class ReportsService {
     return Number.isFinite(score) ? score : null;
   }
 
+  private normalizeScoreWeight(value: unknown, fallback: number) {
+    const weight = Number(value);
+    if (!Number.isFinite(weight)) return fallback;
+    return Math.max(0, Math.min(100, Math.round(weight)));
+  }
+
   private firstRelation<T = any>(value: T | T[] | null | undefined): T | null {
     if (Array.isArray(value)) return value[0] || null;
     return value || null;
@@ -79,6 +85,16 @@ export class ReportsService {
     return Math.round((correctCount / multipleChoiceQuestions.length) * 100);
   }
 
+  private getWeightedMultipleChoicePreviewScore(
+    answersValue: unknown,
+    questions: any[],
+    multipleChoiceWeight: unknown,
+  ) {
+    const rawScore = this.getMultipleChoicePreviewScore(answersValue, questions);
+    if (rawScore === null) return null;
+    return Math.round((rawScore * this.normalizeScoreWeight(multipleChoiceWeight, 50)) / 100);
+  }
+
   private async attachMultipleChoicePreview(rows: any[]) {
     const examIds = [...new Set(rows.map((row: any) => row.exam_id).filter(Boolean))];
     if (examIds.length === 0) return rows;
@@ -105,7 +121,13 @@ export class ReportsService {
 
       return {
         ...row,
-        multiple_choice_score: this.getMultipleChoicePreviewScore(row.answers, examQuestions),
+        multiple_choice_score: hasEssay
+          ? this.getWeightedMultipleChoicePreviewScore(
+              row.answers,
+              examQuestions,
+              row.exam?.multiple_choice_weight || row.exams?.multiple_choice_weight,
+            )
+          : this.getMultipleChoicePreviewScore(row.answers, examQuestions),
         is_multiple_choice_only_score: finalScoreMissing,
         essay_pending: hasEssay && finalScoreMissing,
       };
@@ -199,6 +221,8 @@ export class ReportsService {
         date,
         duration,
         subject_id,
+        multiple_choice_weight,
+        essay_weight,
         subjects (
           id,
           name,
@@ -239,6 +263,8 @@ export class ReportsService {
           type,
           date,
           subject_id,
+          multiple_choice_weight,
+          essay_weight,
           subjects (
             id,
             name,
@@ -304,6 +330,8 @@ export class ReportsService {
             type,
             date,
             subject_id,
+            multiple_choice_weight,
+            essay_weight,
             subjects (
               id,
               name,
